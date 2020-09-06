@@ -62,6 +62,7 @@ pub fn get_versioning(versioning: &str) -> u8 {
         "sidebyside" => 0,
         "default" => 0,
         "replace" => 1,
+        "none" => 2,
         _ => {
             println!(
                 "{}: {}",

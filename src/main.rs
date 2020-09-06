@@ -37,7 +37,7 @@ pub struct Args {
     /// Unpack directory name [default: inferred from input directory]
     #[clap(short = "d", long)]
     unpack_directory: Option<String>,
-    /// Versioning strategy (sidebyside, replace)
+    /// Versioning strategy (sidebyside, replace, none)
     #[clap(short = "v", long, default_value = "sidebyside")]
     versioning:       String,
     /// Open a console when starting the runner on Windows

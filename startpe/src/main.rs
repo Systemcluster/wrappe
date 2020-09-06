@@ -5,7 +5,6 @@ use std::{
     env::current_exe,
     fs::{create_dir_all, metadata, read_link, File},
     io::{copy, BufReader, ErrorKind, Seek, SeekFrom},
-    time::SystemTime,
 };
 
 use memmap::MmapOptions;
@@ -28,6 +27,9 @@ use decompress::*;
 
 mod command;
 use command::*;
+
+mod versioning;
+use versioning::*;
 
 #[repr(C)]
 #[derive(Clone, Copy, SizeWith, IOread)]
@@ -97,6 +99,15 @@ fn main() {
 
     println!("payload size: {}", payload_size);
 
+    let version = std::str::from_utf8(
+        &info.uid[0..(info
+            .uid
+            .iter()
+            .position(|&c| c == b'\0')
+            .unwrap_or(info.uid.len()))],
+    )
+    .unwrap();
+
     let unpack_root = match info.unpack_target {
         0 => std::env::temp_dir(),
         1 => dirs::data_local_dir().unwrap(),
@@ -114,31 +125,15 @@ fn main() {
         .unwrap(),
     );
     if info.versioning == 0 {
-        unpack_dir = unpack_dir.join(
-            std::str::from_utf8(
-                &info.uid[0..(info
-                    .uid
-                    .iter()
-                    .position(|&c| c == b'\0')
-                    .unwrap_or(info.uid.len()))],
-            )
-            .unwrap(),
-        );
+        unpack_dir = unpack_dir.join(version);
     }
     println!("extracting to: {}", unpack_dir.display());
 
-    let should_extract = info.versioning == 1
-        || metadata(&unpack_dir)
-            .map(|meta| {
-                meta.modified().unwrap_or(SystemTime::UNIX_EPOCH)
-                    < current_exe()
-                        .unwrap()
-                        .metadata()
-                        .unwrap()
-                        .modified()
-                        .unwrap_or(SystemTime::UNIX_EPOCH)
-            })
-            .unwrap_or(true);
+    let should_extract = match info.versioning {
+        0 => get_version(&unpack_dir) != version,
+        1 => get_version(&unpack_dir) != version,
+        _ => true,
+    };
 
     println!("should extract: {}", should_extract);
 
@@ -221,6 +216,8 @@ fn main() {
                     symlink(&header.link_name().unwrap().unwrap(), &target).unwrap();
                 }
             });
+
+        set_version(&unpack_dir, version);
     }
 
     let current_dir = std::env::current_dir().unwrap();
