@@ -1,0 +1,36 @@
+[package]
+
+authors = ["Christian Sdunek <me@systemcluster.me>"]
+description = "Runner for Packed Executables"
+edition = "2018"
+license = "BSD-2-Clause"
+name = "startpe"
+publish = false
+repository = "https://github.com/Systemcluster/wrappe"
+version = "0.0.0"
+
+[[bin]]
+
+name = "startpe"
+path = "src/main.rs"
+
+[dependencies]
+
+minilz4 = {path = "../../minilz4", version = "^0.4"}
+
+dirs = "3.0.1"
+memmap = "0.7.0"
+rayon = "1.4.0"
+scroll = {version = "0.10.1", default-features = false, features = [
+  "std",
+  "derive",
+]}
+tar = "0.4.30"
+
+[target.'cfg(windows)'.dependencies]
+
+winapi = {version = "0.3.9", features = [
+  "wincon",
+  "wincontypes",
+  "consoleapi",
+]}

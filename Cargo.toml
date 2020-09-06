@@ -1,0 +1,64 @@
+[package]
+
+authors = ["Christian Sdunek <me@systemcluster.me>"]
+build = "build.rs"
+categories = ["compression", "filesystem", "command-line-utilities"]
+description = "Packer for Executables"
+edition = "2018"
+include = [
+  "Cargo.toml",
+  "src/**/*",
+  "startpe/**/*",
+  "build.rs",
+  "LICENSE",
+]
+license = "BSD-2-Clause"
+name = "wrappe"
+readme = "README.md"
+repository = "https://github.com/Systemcluster/wrappe"
+version = "0.0.0"
+
+[[bin]]
+
+name = "wrappe"
+path = "src/main.rs"
+
+[workspace]
+
+members = [
+  ".",
+  "startpe",
+]
+
+[profile.release]
+
+codegen-units = 1
+debug = false
+debug-assertions = false
+incremental = false
+lto = "thin"
+opt-level = 's'
+panic = "abort"
+
+[dependencies]
+
+minilz4 = {path = "../minilz4", version = "^0.4"}
+staticfilemap = {path = "../staticfilemap", version = "^0.1"}
+
+clap = {package = "clap-v3", version = "3.0.0-beta.1"}
+color-backtrace = "0.4.2"
+console = "0.12.0"
+indicatif = "0.15.0"
+jwalk = "0.5.1"
+num_cpus = "1.13.0"
+rand = "0.7.3"
+rayon = "1.4.0"
+scroll = {version = "0.10.1", default-features = false, features = [
+  "std",
+  "derive",
+]}
+tar = "0.4.30"
+
+[build-dependencies]
+
+jwalk = "0.5.1"
