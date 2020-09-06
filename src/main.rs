@@ -46,6 +46,9 @@ pub struct Args {
     /// Set the current dir of the target to the unpack directory
     #[clap(short = "w", long)]
     current_dir:      bool,
+    /// Verify the existence of all payload files before skipping extraction
+    #[clap(short = "e", long)]
+    verify_files:     bool,
     /// Path to the input directory
     #[clap(name = "input", parse(from_os_str))]
     input:            PathBuf,
@@ -70,6 +73,7 @@ struct StarterInfo {
     payload_offset: u64,
     show_console:   u8,
     current_dir:    u8,
+    verify_files:   u8,
     uid:            [u8; 8],
     unpack_target:  u8,
     versioning:     u8,
@@ -217,6 +221,7 @@ fn main() {
             + DistributionInfo::size_with(&LE) as u64,
         show_console: args.show_console.into(),
         current_dir: args.current_dir.into(),
+        verify_files: args.verify_files.into(),
         uid: Alphanumeric
             .sample_iter(thread_rng())
             .take(8)

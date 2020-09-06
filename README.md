@@ -36,6 +36,7 @@ FLAGS:
     -w, --current-dir     Set the current dir of the target to the unpack directory
     -h, --help            Prints help information
     -s, --show-console    Open a console when starting the runner on Windows
+    -e, --verify-files    Verify the existence of all payload files before skipping extraction
     -V, --version         Prints version information
 
 OPTIONS:
@@ -57,6 +58,10 @@ By default the working directory of the unpacked executable is set to the workin
 On Windows, the runner executable is compiled for the [windows-subsystem](https://rust-lang.github.io/rfcs/1665-windows-subsystem.html) and runs without creating a console window. If this flag is set, a console will be created unconditionally.
 
 Without this flag the runner executable will still attach to a console if started from one.
+
+#### verify-files
+
+Check for the existence of all payload files before skipping extraction.
 
 #### compression
 

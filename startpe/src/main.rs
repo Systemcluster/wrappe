@@ -45,6 +45,7 @@ pub struct StarterInfo {
     payload_offset: u64,
     show_console:   u8,
     current_dir:    u8,
+    verify_files:   u8,
     uid:            [u8; 8],
     unpack_target:  u8,
     versioning:     u8,
@@ -130,15 +131,18 @@ fn main() {
     }
     println!("extracting to: {}", unpack_dir.display());
 
-    let should_extract = match info.versioning {
+    let mut should_extract = match info.versioning {
         0 => get_version(&unpack_dir) != version,
         1 => get_version(&unpack_dir) != version,
         _ => true,
     };
 
-    println!("should extract: {}", should_extract);
+    let should_verify = info.verify_files == 1;
 
-    if should_extract {
+    println!("should extract: {}", should_extract);
+    println!("should verify: {}", should_verify);
+
+    if should_extract || should_verify {
         create_dir_all(&unpack_dir).unwrap();
 
         let mut lockfile = LockFile::open(&unpack_dir.join("._wrappe_lock_")).unwrap();
@@ -167,61 +171,90 @@ fn main() {
             }
         }
 
-        println!("sorting...");
-        slices.par_sort_by(|(lheader, _), (rheader, _)| {
-            match (lheader.entry_type().is_dir(), rheader.entry_type().is_dir()) {
-                (true, true) => Ordering::Equal,
-                (false, false) => Ordering::Equal,
-                (true, false) => Ordering::Less,
-                (false, true) => Ordering::Greater,
-            }
-        });
-
-        println!("creating directories...");
-        let _ = slices
-            .iter()
-            .try_for_each(|(header, _): &(&tar::Header, &[u8])| {
-                let kind = header.entry_type();
-                if kind.is_dir() {
-                    let target = unpack_dir.join(&header.path().unwrap());
-                    create_dir_all(&target)
-                        .or_else(|err| {
-                            if err.kind() == ErrorKind::AlreadyExists {
-                                let prev = metadata(&target);
-                                if prev.map(|m| m.is_dir()).unwrap_or(false) {
-                                    return Ok(());
-                                }
-                            }
-                            Err(err)
-                        })
-                        .unwrap();
-                    if let Ok(mode) = header.mode() {
-                        set_perms(&target, None, mode, true).unwrap();
+        if should_verify && !should_extract {
+            println!("verifying...");
+            should_extract = !slices
+                .par_iter()
+                .all(|(header, _): &(&tar::Header, &[u8])| {
+                    if header.entry_type().is_dir() {
+                        let target = unpack_dir.join(&header.path().unwrap());
+                        if !target.is_dir() {
+                            println!("verification failed: not a directory: {}", target.display());
+                            false
+                        } else {
+                            true
+                        }
+                    } else if header.entry_type().is_file() {
+                        let target = unpack_dir.join(&header.path().unwrap());
+                        if !target.is_file() {
+                            println!("verification failed: not a file: {}", target.display());
+                            false
+                        } else {
+                            true
+                        }
+                    } else {
+                        true
                     }
-                    Ok(())
-                } else {
-                    Err(())
+                });
+        }
+
+        if should_extract {
+            println!("sorting...");
+            slices.par_sort_by(|(lheader, _), (rheader, _)| {
+                match (lheader.entry_type().is_dir(), rheader.entry_type().is_dir()) {
+                    (true, true) => Ordering::Equal,
+                    (false, false) => Ordering::Equal,
+                    (true, false) => Ordering::Less,
+                    (false, true) => Ordering::Greater,
                 }
             });
 
-        println!("unpacking...");
-        slices
-            .par_iter()
-            .for_each(|(header, data): &(&Header, &[u8])| {
-                let kind = header.entry_type();
-                if kind.is_file() {
-                    let target = unpack_dir.join(header.path().unwrap());
-                    let mut file = File::create(&target).unwrap();
-                    let mut decoder = Decoder::new(*data).unwrap();
-                    copy(&mut decoder, &mut file).unwrap();
-                    set_perms(&target, Some(&mut file), header.mode().unwrap(), true).unwrap();
-                } else if kind.is_symlink() {
-                    let target = unpack_dir.join(header.path().unwrap());
-                    symlink(&header.link_name().unwrap().unwrap(), &target).unwrap();
-                }
-            });
+            println!("creating directories...");
+            let _ = slices
+                .iter()
+                .try_for_each(|(header, _): &(&tar::Header, &[u8])| {
+                    let kind = header.entry_type();
+                    if kind.is_dir() {
+                        let target = unpack_dir.join(&header.path().unwrap());
+                        create_dir_all(&target)
+                            .or_else(|err| {
+                                if err.kind() == ErrorKind::AlreadyExists {
+                                    let prev = metadata(&target);
+                                    if prev.map(|m| m.is_dir()).unwrap_or(false) {
+                                        return Ok(());
+                                    }
+                                }
+                                Err(err)
+                            })
+                            .unwrap();
+                        if let Ok(mode) = header.mode() {
+                            set_perms(&target, None, mode, true).unwrap();
+                        }
+                        Ok(())
+                    } else {
+                        Err(())
+                    }
+                });
 
-        set_version(&unpack_dir, version);
+            println!("unpacking...");
+            slices
+                .par_iter()
+                .for_each(|(header, data): &(&Header, &[u8])| {
+                    let kind = header.entry_type();
+                    if kind.is_file() {
+                        let target = unpack_dir.join(header.path().unwrap());
+                        let mut file = File::create(&target).unwrap();
+                        let mut decoder = Decoder::new(*data).unwrap();
+                        copy(&mut decoder, &mut file).unwrap();
+                        set_perms(&target, Some(&mut file), header.mode().unwrap(), true).unwrap();
+                    } else if kind.is_symlink() {
+                        let target = unpack_dir.join(header.path().unwrap());
+                        symlink(&header.link_name().unwrap().unwrap(), &target).unwrap();
+                    }
+                });
+
+            set_version(&unpack_dir, version);
+        }
     }
 
     let current_dir = std::env::current_dir().unwrap();
