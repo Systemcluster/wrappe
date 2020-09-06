@@ -102,22 +102,32 @@ pub fn get_source(source: &Path) -> PathBuf {
 
 pub fn get_output(output: &Path) -> PathBuf {
     let output = Path::new(&std::env::current_dir().unwrap()).join(&output);
-    if !output.parent().unwrap().is_dir() {
+    if !output.parent().map(|path| path.is_dir()).unwrap_or(false) {
         println!(
             "{}: {}",
-            style("output path is invalid").red(),
+            style("output path has no parent directory").red(),
             output.parent().unwrap().display()
         );
         std::process::exit(-1);
     }
-    std::fs::canonicalize(&output).unwrap_or_else(|_| {
+    if output.is_dir() {
         println!(
             "{}: {}",
-            style("output path is invalid").red(),
-            output.parent().unwrap().display()
+            style("output path is a directory").red(),
+            output.display()
         );
         std::process::exit(-1);
-    })
+    }
+    std::fs::canonicalize(&output.parent().unwrap())
+        .unwrap_or_else(|_| {
+            println!(
+                "{}: {}",
+                style("output path is invalid").red(),
+                output.display()
+            );
+            std::process::exit(-1);
+        })
+        .join(output.file_name().unwrap())
 }
 
 pub fn get_unpack_directory(directory: &Option<String>, source: &Path) -> [u8; 128] {
