@@ -19,6 +19,7 @@ path = "src/main.rs"
 minilz4 = {path = "../../minilz4", version = "^0.4"}
 
 dirs = "3.0.1"
+fslock = "0.1.6"
 memmap = "0.7.0"
 rayon = "1.4.0"
 scroll = {version = "0.10.1", default-features = false, features = [

@@ -7,6 +7,7 @@ use std::{
     io::{copy, BufReader, ErrorKind, Seek, SeekFrom},
 };
 
+use fslock::LockFile;
 use memmap::MmapOptions;
 use minilz4::Decoder;
 use rayon::prelude::*;
@@ -139,6 +140,9 @@ fn main() {
 
     if should_extract {
         create_dir_all(&unpack_dir).unwrap();
+
+        let mut lockfile = LockFile::open(&unpack_dir.join("._wrappe_lock_")).unwrap();
+        lockfile.lock().unwrap();
 
         let mmap = unsafe {
             MmapOptions::new()
