@@ -62,3 +62,4 @@ tar = "0.4.30"
 [build-dependencies]
 
 jwalk = "0.5.1"
+which = "4.0.2"

@@ -1,5 +1,5 @@
 use std::{
-    fs::{metadata, set_permissions, File},
+    fs::{set_permissions, File},
     io::{Error, ErrorKind, Result},
     path::Path,
 };
@@ -13,7 +13,7 @@ fn _set_perms(dst: &Path, f: Option<&mut File>, mode: u32, preserve: bool) -> Re
     use ::std::os::unix::prelude::*;
 
     let mode = if preserve { mode } else { mode & 0o777 };
-    let perm = Permissions::from_mode(mode as _);
+    let perm = PermissionsExt::from_mode(mode as _);
     match f {
         Some(f) => f.set_permissions(perm),
         None => set_permissions(dst, perm),
@@ -21,6 +21,7 @@ fn _set_perms(dst: &Path, f: Option<&mut File>, mode: u32, preserve: bool) -> Re
 }
 #[cfg(windows)]
 fn _set_perms(dst: &Path, f: Option<&mut File>, mode: u32, _preserve: bool) -> Result<()> {
+    use ::std::fs::metadata;
     if mode & 0o200 == 0o200 {
         return Ok(());
     }

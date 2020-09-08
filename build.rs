@@ -1,10 +1,12 @@
-use std::{env::var, process::Command, vec::Vec};
+use std::{env::var, path::PathBuf, process::Command, vec::Vec};
 
 use jwalk::WalkDir;
+use which::which;
 
 
 const TARGETS_ENV: &str = "WRAPPE_TARGETS";
 const FILES_ENV: &str = "WRAPPE_FILES";
+const NO_CROSS_ENV: &str = "WRAPPE_NO_CROSS";
 const STARTER_NAME: &str = "startpe";
 
 
@@ -46,13 +48,21 @@ fn get_runner_targets() -> Vec<String> {
             }
         }
     }
+    active_targets.sort();
+    active_targets.dedup();
     active_targets
 }
 
 fn compile_runner(target: &str, out_dir: &str) -> bool {
     let profile = var("PROFILE").unwrap();
-    let cargo = var("CARGO").unwrap();
-    let mut command = Command::new(cargo);
+    let native_target = var("TARGET").unwrap();
+    let cargo = PathBuf::from(var("CARGO").unwrap()).canonicalize().unwrap();
+    let no_cross = var(NO_CROSS_ENV) == Ok("true".into()) || var(NO_CROSS_ENV) == Ok("1".into());
+    let mut command = if target == native_target || no_cross {
+        Command::new(cargo)
+    } else {
+        Command::new(which("cross").unwrap_or(cargo))
+    };
     command
         .current_dir(STARTER_NAME)
         .arg("build")

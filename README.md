@@ -106,5 +106,8 @@ cargo build --release
 To compile and include additional runners for other platforms, speficy the desired [target triplets](https://doc.rust-lang.org/stable/rustc/targets/) in the `WRAPPE_TARGETS` environment variable.
 
 ```shell
-WRAPPE_TARGETS=x86_64-unknown-linux-gnu,x86_64-apple-darwin cargo build --release
+WRAPPE_TARGETS=x86_64-unknown-linux-gnu;x86_64-pc-windows-msvc cargo build --release
 ```
+
+Cross compilation of additional runners is performed through [cross](https://github.com/rust-embedded/cross) if available.
+To disable compilation through cross, set the `WRAPPE_NO_CROSS` environment variable to `true`.
