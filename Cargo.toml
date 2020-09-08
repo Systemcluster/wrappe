@@ -42,10 +42,10 @@ panic = "abort"
 
 [dependencies]
 
-minilz4 = {path = "../minilz4", version = "^0.4"}
-staticfilemap = {path = "../staticfilemap", version = "^0.1"}
+minilz4 = "0.4.0"
+staticfilemap = "0.1.2"
 
-clap = {package = "clap-v3", version = "3.0.0-beta.1"}
+clap = {package = "clap", version = "3.0.0-beta.1"}
 color-backtrace = "0.4.2"
 console = "0.12.0"
 indicatif = "0.15.0"

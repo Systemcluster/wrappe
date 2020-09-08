@@ -16,7 +16,7 @@ path = "src/main.rs"
 
 [dependencies]
 
-minilz4 = {path = "../../minilz4", version = "^0.4"}
+minilz4 = "0.4.0"
 
 dirs = "3.0.1"
 fslock = "0.1.6"
