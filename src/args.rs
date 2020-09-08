@@ -174,8 +174,11 @@ pub fn get_command(command: &Path, source: &Path) -> [u8; 128] {
     } else {
         source
     };
-    let command = source.join(command);
-    let command = std::fs::canonicalize(&command).unwrap_or_else(|e| {
+    let command = match std::fs::canonicalize(&source.join(command)) {
+        Err(_) => std::fs::canonicalize(Path::new(&std::env::current_dir().unwrap()).join(command)),
+        command => command,
+    }
+    .unwrap_or_else(|e| {
         println!("{}: {}", style("command path is invalid").red(), e);
         std::process::exit(-1);
     });
