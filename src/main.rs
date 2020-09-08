@@ -40,6 +40,10 @@ pub struct Args {
     /// Versioning strategy (sidebyside, replace, none)
     #[clap(short = "v", long, default_value = "sidebyside")]
     versioning:       String,
+    /// Prints available runners
+    #[clap(short = "l", long)]
+    #[allow(dead_code)]
+    list_runners:     bool,
     /// Open a console when starting the runner on Windows
     #[clap(short = "s", long)]
     show_console:     bool,
@@ -83,6 +87,11 @@ const WRAPPE_FORMAT: u8 = 100;
 
 fn main() {
     color_backtrace::install();
+
+    if std::env::args().any(|arg| arg == "-l" || arg == "--list-runners") {
+        list_runners();
+        std::process::exit(0);
+    }
 
     let args = Args::parse();
 

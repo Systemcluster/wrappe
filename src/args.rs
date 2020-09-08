@@ -10,6 +10,18 @@ use staticfilemap::StaticFileMap;
 #[compression = 8]
 struct StarterMap;
 
+pub fn list_runners() {
+    println!(
+        "{}: {}",
+        style("available runners").blue(),
+        format!(
+            "{} {} ",
+            StarterMap::keys()[0],
+            style("(default)").bold().black()
+        ) + &StarterMap::keys()[1..].join(", ")
+    );
+}
+
 pub fn get_runner(name: &str) -> &'static [u8] {
     let runner_name = if name == "native" || name == "default" {
         StarterMap::keys()[0]
@@ -22,15 +34,7 @@ pub fn get_runner(name: &str) -> &'static [u8] {
             style("not a valid runner").red(),
             style(runner_name).red()
         );
-        println!(
-            "{}: {}",
-            style("available runners").blue(),
-            format!(
-                "{} {}",
-                StarterMap::keys()[0],
-                style("(default)").bold().black()
-            ) + &StarterMap::keys()[1..].join(", ")
-        );
+        list_runners();
         std::process::exit(-1);
     })
 }

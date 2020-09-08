@@ -35,6 +35,7 @@ ARGS:
 FLAGS:
     -w, --current-dir     Set the current dir of the target to the unpack directory
     -h, --help            Prints help information
+    -l, --list-runners    Prints available runners
     -s, --show-console    Open a console when starting the runner on Windows
     -e, --verify-files    Verify the existence of all payload files before skipping extraction
     -V, --version         Prints version information
@@ -70,6 +71,8 @@ This option controls the LZ4 compression level. Accepted values range from `0` t
 #### runner
 
 This option specifies which runner will be used for the output executable. It defaults to the native runner for the current platform. Additional runners have to be included at compile time, see the compilation section for more info.
+
+Partial matches are accepted if unambiguous, for instance `windows` will be accepted if only one runner for Windows is available.
 
 #### unpack-directory
 
