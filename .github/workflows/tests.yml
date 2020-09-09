@@ -1,0 +1,54 @@
+name: Tests & Checks
+
+on:
+  pull_request:
+    branches:
+      - "master"
+    paths-ignore:
+      - ".github/**"
+      - "**/*.md"
+
+jobs:
+
+  checks:
+
+    name: Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v2
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          profile: minimal
+          default: true
+          components: rustfmt, clippy
+
+      - name: Update dependencies
+        run: |
+          cargo update
+
+      - name: Setup cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-nightly-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Check formatting
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+      - name: Check clippy
+        uses: actions-rs/clippy-check@v1
+        with:
+          name: Clippy
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --workspace --all-features -- -D warnings
