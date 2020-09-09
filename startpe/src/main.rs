@@ -80,7 +80,14 @@ fn main() {
             console = GetConsoleWindow();
         }
     }
-    println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+    println!(
+        "{} {}{}",
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+        option_env!("GIT_HASH")
+            .map(|hash| format!(" ({})", hash))
+            .unwrap_or_default()
+    );
 
     if info.signature != [0x50, 0x45, 0x33, 0x44, 0x41, 0x54, 0x41, 0x00] {
         panic!("file signature is invalid");

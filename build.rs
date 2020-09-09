@@ -63,6 +63,9 @@ fn compile_runner(target: &str, out_dir: &str) -> bool {
     } else {
         Command::new(which("cross").unwrap_or(cargo))
     };
+    if let Some(hash) = get_git_hash() {
+        command.env("GIT_HASH", hash);
+    }
     command
         .current_dir(STARTER_NAME)
         .arg("build")
@@ -79,12 +82,35 @@ fn compile_runner(target: &str, out_dir: &str) -> bool {
     status.success()
 }
 
+fn get_git_hash() -> Option<String> {
+    which("git").ok().and_then(|git| {
+        Command::new(git)
+            .args(&["rev-parse", "--short", "HEAD"])
+            .output()
+            .ok()
+            .and_then(|output| {
+                String::from_utf8(output.stdout)
+                    .map(|output| output.trim().into())
+                    .ok()
+            })
+    })
+}
+
 fn main() {
     println!("cargo:rerun-if-env-changed=OUT_DIR");
     println!("cargo:rerun-if-env-changed=PROFILE");
     println!("cargo:rerun-if-env-changed=TARGET");
     println!("cargo:rerun-if-env-changed={}", TARGETS_ENV);
     println!("cargo:rerun-if-changed=build.rs");
+    if let Some(hash) = get_git_hash() {
+        println!("cargo:rustc-env=GIT_HASH={}", hash);
+        println!(
+            "cargo:rustc-env=CARGO_PKG_VERSION={} ({})",
+            var("CARGO_PKG_VERSION").unwrap(),
+            hash
+        );
+    }
+    println!("cargo:rerun-if-changed=.git/HEAD");
     for entry in WalkDir::new(STARTER_NAME)
         .into_iter()
         .filter_map(|e| e.ok())
