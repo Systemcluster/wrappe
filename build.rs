@@ -66,6 +66,16 @@ fn compile_runner(target: &str, out_dir: &str) -> bool {
     if let Some(hash) = get_git_hash() {
         command.env("GIT_HASH", hash);
     }
+    if let Ok(rustflags) = var("RUSTFLAGS") {
+        if !rustflags.contains("-Ctarget-feature") && !rustflags.contains("-C target-feature") {
+            command.env(
+                "RUSTFLAGS",
+                [&var("RUSTFLAGS").unwrap(), "-Ctarget-feature=+crt-static"].join(" "),
+            );
+        }
+    } else {
+        command.env("RUSTFLAGS", "-Ctarget-feature=+crt-static");
+    }
     command
         .current_dir(STARTER_NAME)
         .arg("build")

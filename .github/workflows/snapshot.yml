@@ -19,12 +19,24 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v2
 
-      - name: Install Rust toolchain
+      - name: Set up environment
+        run: |
+          sudo apt-get install mingw-w64 musl-tools
+
+      - name: Install Linux Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          target: x86_64-unknown-linux-musl
           profile: minimal
           default: true
+
+      - name: Install Windows Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: x86_64-pc-windows-gnu
+          profile: minimal
 
       - name: Update dependencies
         run: |
@@ -39,36 +51,27 @@ jobs:
             target
           key: cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Install cross
-        uses: actions-rs/install@v0.1
-        with:
-          crate: cross
-          version: latest
-          use-tool-cache: true
-
       - name: Build Windows release
         env:
-          RUSTFLAGS: "-Ctarget-feature=+crt-static,+mmx,+sse,+sse2,+sse3,+ssse3,+sse4.1,+sse4.2,+fma,+popcnt,+lzcnt,+pclmul,+cmov,+cx8,+cx16,+avx,+aes"
+          RUSTFLAGS: "-Ctarget-feature=+crt-static,+mmx,+sse,+sse2,+sse3,+ssse3,+sse4.1,+sse4.2,+fma,+popcnt,+pclmul,+cmov,+cx8,+cx16,+avx,+aes"
           WRAPPE_TARGETS: "x86_64-pc-windows-gnu;x86_64-unknown-linux-musl"
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --release --target x86_64-pc-windows-gnu
-          use-cross: true
 
       - name: Build Linux release
         env:
-          RUSTFLAGS: "-Ctarget-feature=+crt-static,+mmx,+sse,+sse2,+sse3,+ssse3,+sse4.1,+sse4.2,+fma,+popcnt,+lzcnt,+pclmul,+cmov,+cx8,+cx16,+avx,+aes"
+          RUSTFLAGS: "-Ctarget-feature=+crt-static,+mmx,+sse,+sse2,+sse3,+ssse3,+sse4.1,+sse4.2,+fma,+popcnt,+pclmul,+cmov,+cx8,+cx16,+avx,+aes"
           WRAPPE_TARGETS: "x86_64-pc-windows-gnu;x86_64-unknown-linux-musl"
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --release --target x86_64-unknown-linux-musl
-          use-cross: true
 
       - name: Collect executables
         run: |
-          mv target/x86_64-pc-windows-gnu/release/wrappe.exe wrappe-windows.exe
+          mv target/x86_64-pc-windows-gnu/release/wrappe.exe wrappe.exe
           mv target/x86_64-unknown-linux-musl/release/wrappe wrappe-linux
 
       - name: Upload release
@@ -79,7 +82,7 @@ jobs:
           prerelease: false
           title: Snapshot
           files: |
-            wrappe-windows.exe
+            wrappe.exe
             wrappe-linux
 
   macos:
@@ -122,7 +125,7 @@ jobs:
 
       - name: Build macOS release
         env:
-          RUSTFLAGS: "-Ctarget-feature=+crt-static,+mmx,+sse,+sse2,+sse3,+ssse3,+sse4.1,+sse4.2,+fma,+popcnt,+lzcnt,+pclmul,+cmov,+cx8,+cx16,+avx,+aes"
+          RUSTFLAGS: "-Ctarget-feature=+crt-static,+mmx,+sse,+sse2,+sse3,+ssse3,+sse4.1,+sse4.2,+fma,+popcnt,+pclmul,+cmov,+cx8,+cx16,+avx,+aes"
           RUSTC_WRAPPER: sccache
         uses: actions-rs/cargo@v1
         with:
