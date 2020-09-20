@@ -1,18 +1,49 @@
 use std::{
-    io::{BufReader, BufWriter, Cursor, Seek, Write},
+    env::temp_dir,
+    fs::{read_link, remove_file, symlink_metadata, File},
+    hash::Hasher,
+    io::{copy, BufReader, BufWriter, Cursor, Read, Result, Seek, SeekFrom, Write},
     path::Path,
+    sync::{Arc, Mutex},
+    time::SystemTime,
 };
 
 use jwalk::WalkDir;
 use minilz4::{Encode, EncoderBuilder};
+use path_slash::PathExt;
 use rand::{
     distributions::{Alphanumeric, Distribution},
     thread_rng,
 };
 use rayon::prelude::*;
+use sysinfo::{System, SystemExt};
+use twox_hash::XxHash64;
+use zerocopy::AsBytes;
 
+use crate::types::*;
 
-pub fn compress_dir_multithread<
+pub const HASH_SEED: u64 = 1246736989840;
+
+pub struct HashReader<R: Read, H: Hasher> {
+    reader: R,
+    hasher: H,
+}
+impl<R: Read, H: Hasher> HashReader<R, H> {
+    pub fn new(reader: R, hasher: H) -> Self { HashReader { reader, hasher } }
+
+    pub fn finish(self) -> u64 { self.hasher.finish() }
+}
+impl<R: Read, H: Hasher> Read for HashReader<R, H> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        let bytes = self.reader.read(buf)?;
+        if bytes > 0 {
+            self.hasher.write(&buf[0..bytes]);
+        }
+        Ok(bytes)
+    }
+}
+
+pub fn compress<
     T: AsRef<Path>,
     W: Write + Seek + Sync + Send,
     P: Fn() + Sync + Send,
@@ -22,196 +53,431 @@ pub fn compress_dir_multithread<
     source: T, target: &mut W, compression: u32, progress_callback: P, error_callback: E,
     info_callback: I,
 ) -> usize {
-    let dir = WalkDir::new(&source)
-        .skip_hidden(false)
-        .parallelism(jwalk::Parallelism::RayonNewPool(num_cpus::get()))
-        .into_iter();
-
     let source: &Path = source.as_ref();
+
+    let system = System::new_with_specifics(sysinfo::RefreshKind::new().with_memory());
+    let memory = system.get_total_memory();
+    let in_memory_limit = memory / num_cpus::get() as u64 * 1000;
+
+    let entries = WalkDir::new(&source)
+        .skip_hidden(false)
+        .sort(true)
+        .into_iter()
+        .filter(|entry| {
+            if let Err(e) = entry {
+                error_callback(&format!("couldn't read entry: {}", e));
+                return false;
+            }
+            true
+        })
+        .collect::<Vec<_>>();
+
     let source: &Path = if source.is_dir() {
         source
     } else {
         source.parent().unwrap()
     };
 
-    let archive = tar::Builder::new(target);
-    let archive = std::sync::Arc::new(std::sync::Mutex::new(archive));
+    let mut directories = Vec::<DirectorySection>::new();
+    let mut parents = Vec::<String>::from(["".to_owned()]);
 
-    let processed = dir
-        .par_bridge()
+    // enumerate directories
+    let _ = entries
+        .iter()
         .filter_map(|entry| {
-            let entry = entry.as_ref();
-            if let Err(e) = entry {
-                error_callback(&format!("couldn't read {:?}: {}", entry, e));
+            let entry = entry.as_ref().ok()?;
+            if !entry.file_type().is_dir() {
                 return None;
             }
-            let entry = entry.ok()?;
-            let source_path = entry.path();
-            let target_path = source_path.strip_prefix(&source);
+            let entry = entry.path();
+            let entry = entry.strip_prefix(&source).ok()?;
 
-            if let Err(e) = target_path {
-                error_callback(&format!("couldn't read {:?}: {}", entry, e));
-                return None;
-            }
-            let target_path = target_path.ok()?;
-            if target_path == Path::new("") {
+            if entry.file_name()?.len() > NAME_SIZE {
+                error_callback(&format!(
+                    "skipping directory with name longer than {}: {}",
+                    NAME_SIZE,
+                    entry.display()
+                ));
                 return None;
             }
 
-            info_callback(&target_path.display().to_string());
+            info_callback(&entry.display().to_string());
 
-            let mut header = tar::Header::new_ustar();
-            if let Err(e) = header.set_path(target_path) {
-                error_callback(&format!("failed setting path {:?}: {}", target_path, e));
+            let name = entry.file_name()?.to_str()?;
+
+            let path = entry.to_slash()?;
+            parents.push(path);
+
+            let parent = entry.parent().unwrap().to_slash().unwrap();
+            let parent = match parents.iter().position(|element| element == &parent) {
+                Some(index) => index,
+                None => {
+                    error_callback(&format!(
+                        "skipping directory with no included parent: {}",
+                        entry.display()
+                    ));
+                    return None;
+                }
             };
 
-            if source_path.is_dir() {
-                let meta = std::fs::metadata(&source_path);
-                if let Err(ref e) = meta {
-                    error_callback(&format!(
-                        "couldn't read metadata of {:?}: {}",
-                        source_path, e
-                    ));
-                }
-                header.set_metadata(&meta.ok()?);
-                header.set_cksum();
-                let mut lock = archive.lock();
-                if let Ok(ref mut archive) = lock {
-                    if let Err(e) = archive.append(&header, std::io::empty()) {
-                        error_callback(&format!("failed appending to archive: {}", e));
-                        return None;
-                    };
-                }
-            } else if entry.path_is_symlink() {
-                let meta = std::fs::symlink_metadata(&source_path);
-                if let Err(ref e) = meta {
-                    error_callback(&format!(
-                        "couldn't read metadata of {:?}: {}",
-                        source_path, e
-                    ));
-                    return None;
-                }
-                header.set_metadata(&meta.ok()?);
-                let linkname = std::fs::read_link(&source_path);
-                if let Err(ref e) = linkname {
-                    error_callback(&format!(
-                        "couldn't read linkname of {:?}: {}",
-                        source_path, e
-                    ));
-                    return None;
-                }
-                let linkname = linkname.ok()?;
-                let linkname = linkname.strip_prefix(&source);
-                if let Ok(linkname) = linkname {
-                    if let Err(e) = header.set_link_name(linkname) {
-                        error_callback(&format!("failed setting linkname {:?}: {}", linkname, e));
-                        return None;
-                    };
-                } else {
-                    error_callback(&format!(
-                        "link points to outside the directory, skipping {}",
-                        source_path.display(),
-                    ));
-                    return None;
-                }
-                header.set_cksum();
-                let mut lock = archive.lock();
-                if let Ok(ref mut archive) = lock {
-                    if let Err(e) = archive.append(&header, std::io::empty()) {
-                        error_callback(&format!(
-                            "failed appending {} to archive: {}",
-                            target_path.display(),
-                            e
-                        ));
-                        return None;
-                    };
-                }
-            } else {
-                let meta = std::fs::metadata(&source_path);
-                if let Err(ref e) = meta {
-                    error_callback(&format!(
-                        "couldn't read metadata of {:?}: {}",
-                        source_path, e
-                    ));
-                    return None;
-                }
-                let meta = meta.ok()?;
-                header.set_metadata(&meta);
-                let file = std::fs::File::open(&source_path);
-                if let Err(e) = file {
-                    error_callback(&format!("couldn't open {:?}: {}", source_path, e));
-                    return None;
-                }
-                let file = file.ok()?;
-                if meta.len() > 2000000000 {
-                    info_callback(&format!(
-                        "{} (compressing large file to disk)",
-                        target_path.display(),
-                    ));
-                    let cache_path = std::env::temp_dir().join(
-                        Alphanumeric
-                            .sample_iter(thread_rng())
-                            .take(16)
-                            .collect::<String>(),
-                    );
-                    if let Err(e) = (|| -> std::io::Result<()> {
-                        let mut cache = std::fs::File::create(&cache_path)?;
-                        let mut encoder = EncoderBuilder::new()
-                            .level(compression)
-                            .build(BufWriter::new(&mut cache))?;
-                        std::io::copy(&mut BufReader::new(file), &mut encoder)?;
-                        encoder.finish()?.flush()?;
-                        cache.sync_all()?;
-                        Ok(())
-                    })() {
-                        error_callback(&format!("couldn't compress {:?}: {}", source_path, e));
-                        return None;
-                    }
-                    if let Err(e) = (|| -> std::io::Result<()> {
-                        let cache = std::fs::File::open(&cache_path)?;
-                        header.set_size(cache.metadata()?.len() as u64);
-                        header.set_cksum();
-                        let mut lock = archive.lock();
-                        if let Ok(ref mut archive) = lock {
-                            archive.append(&header, BufReader::new(cache))?;
-                        }
-                        Ok(())
-                    })() {
-                        error_callback(&format!(
-                            "failed appending {} to archive: {}",
-                            target_path.display(),
-                            e
-                        ));
-                        return None;
-                    }
-                    let _ = std::fs::remove_file(cache_path);
-                } else {
-                    let data =
-                        BufReader::new(file).encode(EncoderBuilder::new().level(compression));
-                    if let Err(e) = data {
-                        error_callback(&format!("couldn't compress {:?}: {}", source_path, e));
-                        return None;
-                    }
-                    let data = data.ok()?;
-                    header.set_size(data.len() as u64);
-                    header.set_cksum();
-                    let mut lock = archive.lock();
-                    if let Ok(ref mut archive) = lock {
-                        if let Err(e) = archive.append(&header, Cursor::new(data)) {
-                            error_callback(&format!(
-                                "failed appending {}, to archive: {}",
-                                target_path.display(),
-                                e
-                            ));
-                            return None;
-                        };
-                    }
-                }
-            }
+            let mut name_array = [0; NAME_SIZE];
+            name_array[0..name.len()].copy_from_slice(name.as_bytes());
+            directories.push(DirectorySection {
+                name:   name_array,
+                parent: parent as u32,
+            });
+
             progress_callback();
             Some(())
         })
         .count();
-    archive.lock().unwrap().finish().unwrap();
-    processed
+
+    let zero = target.seek(SeekFrom::Current(0)).unwrap();
+    let archive = Arc::new(Mutex::new(target));
+    let files = Arc::new(Mutex::new(Vec::<FileSectionHeader>::new()));
+    let links = Arc::new(Mutex::new(Vec::<String>::new()));
+
+    // compress and append files
+    let _ = entries
+        .par_iter()
+        .filter_map(|entry| {
+            let entry = entry.as_ref().ok()?;
+            if !entry.file_type().is_file() {
+                return None;
+            }
+            let entry = entry.path();
+
+            if entry.file_name()?.len() > NAME_SIZE {
+                error_callback(&format!(
+                    "skipping file with name longer than: {}: {}",
+                    NAME_SIZE,
+                    entry.display()
+                ));
+                return None;
+            }
+
+            info_callback(&entry.strip_prefix(&source).ok()?.display().to_string());
+
+            let parent = entry.strip_prefix(&source).ok()?.parent()?.to_slash()?;
+            let parent = match parents.iter().position(|element| element == &parent) {
+                Some(index) => index,
+                None => {
+                    error_callback(&format!(
+                        "skipping file with no included parent: {}",
+                        entry.display()
+                    ));
+                    return None;
+                }
+            };
+
+            let name = entry.file_name()?.to_str()?;
+
+            let file = File::open(&entry);
+            if let Err(e) = file {
+                error_callback(&format!("couldn't open {}: {}", entry.display(), e));
+                return None;
+            }
+            let file = file.ok()?;
+
+            let mut in_memory = true;
+            let meta = file.metadata();
+            if let Ok(ref meta) = meta {
+                if meta.len() > in_memory_limit {
+                    in_memory = false;
+                }
+            }
+
+            let mut start = 0;
+            let mut end = 0;
+            let file_hash;
+            let mut compressed_hash = 0;
+            let mut reader = HashReader::new(BufReader::new(file), XxHash64::with_seed(HASH_SEED));
+
+            if in_memory {
+                let data = reader.encode(EncoderBuilder::new().level(compression));
+                if let Err(e) = data {
+                    error_callback(&format!("couldn't compress {}: {}", entry.display(), e));
+                    return None;
+                }
+
+                let data = data.ok()?;
+                let mut archive = archive.lock();
+                if let Ok(ref mut archive) = archive {
+                    start = archive.seek(SeekFrom::Current(0)).unwrap();
+                    let mut hasher =
+                        HashReader::new(Cursor::new(&data), XxHash64::with_seed(HASH_SEED));
+                    if let Err(e) = copy(&mut hasher, archive.by_ref()) {
+                        error_callback(&format!(
+                            "couldn't write {} to archive: {}",
+                            entry.display(),
+                            e
+                        ));
+                        return None;
+                    }
+                    compressed_hash = hasher.finish();
+                    end = archive.seek(SeekFrom::Current(0)).unwrap();
+                }
+            } else {
+                info_callback(&format!(
+                    "{} (compressing large file to disk)",
+                    entry.display(),
+                ));
+                let cache_path = temp_dir().join(
+                    Alphanumeric
+                        .sample_iter(thread_rng())
+                        .take(16)
+                        .collect::<String>(),
+                );
+
+                if let Err(e) = (|| -> Result<()> {
+                    let mut cache = File::create(&cache_path)?;
+                    let mut encoder = EncoderBuilder::new()
+                        .level(compression)
+                        .build(BufWriter::new(&mut cache))?;
+                    copy(&mut reader, &mut encoder)?;
+                    encoder.finish()?.flush()?;
+                    cache.sync_all()?;
+                    Ok(())
+                })() {
+                    error_callback(&format!("couldn't compress {}: {}", entry.display(), e));
+                    return None;
+                }
+
+                if let Err(e) = (|| -> Result<()> {
+                    let mut cache = File::open(&cache_path)?;
+                    let mut archive = archive.lock();
+                    let mut hasher =
+                        HashReader::new(BufReader::new(&mut cache), XxHash64::with_seed(HASH_SEED));
+                    if let Ok(ref mut archive) = archive {
+                        start = archive.seek(SeekFrom::Current(0)).unwrap();
+                        copy(&mut hasher, archive.by_ref())?;
+                        end = archive.seek(SeekFrom::Current(0)).unwrap();
+                    }
+                    compressed_hash = hasher.finish();
+                    Ok(())
+                })() {
+                    error_callback(&format!(
+                        "couldn't write {} to archive: {}",
+                        entry.display(),
+                        e
+                    ));
+                    return None;
+                }
+
+                let _ = remove_file(cache_path);
+            }
+            file_hash = reader.finish();
+
+            let mut name_array = [0; NAME_SIZE];
+            name_array[0..name.len()].copy_from_slice(name.as_bytes());
+            let mut header = FileSectionHeader {
+                name: name_array,
+                parent: parent as u32,
+                position: start - zero,
+                size: end - start,
+                file_hash,
+                compressed_hash,
+                time_accessed_nanos: 0,
+                time_accessed_seconds: 0,
+                time_modified_nanos: 0,
+                time_modified_seconds: 0,
+                mode: 0,
+                readonly: 0,
+            };
+
+            if let Ok(ref meta) = meta {
+                if let Ok(accessed) = meta.accessed() {
+                    if let Ok(accessed) = accessed.duration_since(SystemTime::UNIX_EPOCH) {
+                        header.time_accessed_seconds = accessed.as_secs();
+                        header.time_accessed_nanos = accessed.subsec_nanos();
+                    }
+                }
+                if let Ok(modified) = meta.modified() {
+                    if let Ok(modified) = modified.duration_since(SystemTime::UNIX_EPOCH) {
+                        header.time_modified_seconds = modified.as_secs();
+                        header.time_modified_nanos = modified.subsec_nanos();
+                    }
+                }
+                header.readonly = meta.permissions().readonly() as u8;
+                #[cfg(any(unix, target_os = "redox"))]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    header.mode = meta.permissions().mode();
+                }
+            }
+
+            let mut files = files.lock();
+            if let Ok(ref mut files) = files {
+                files.push(header);
+                let mut links = links.lock();
+                if let Ok(ref mut links) = links {
+                    links.push(entry.strip_prefix(&source).ok()?.to_slash()?);
+                }
+            }
+
+            progress_callback();
+            Some(())
+        })
+        .count();
+
+    let symlinks = Arc::new(Mutex::new(Vec::<SymlinkSection>::new()));
+
+    // enumerate symlinks
+    let _ = entries
+        .par_iter()
+        .filter_map(|entry| {
+            let entry = entry.as_ref().ok()?;
+            if !entry.file_type().is_symlink() {
+                return None;
+            }
+            let entry = entry.path();
+
+            if entry.file_name()?.len() > NAME_SIZE {
+                error_callback(&format!(
+                    "skipping file with name longer than: {}: {}",
+                    NAME_SIZE,
+                    entry.display()
+                ));
+                return None;
+            }
+
+            info_callback(&entry.strip_prefix(&source).ok()?.display().to_string());
+
+            let parent = entry.strip_prefix(&source).ok()?.parent()?.to_slash()?;
+            let parent = match parents.iter().position(|element| element == &parent) {
+                Some(index) => index,
+                None => {
+                    error_callback(&format!(
+                        "skipping file with no included parent: {}",
+                        entry.display()
+                    ));
+                    return None;
+                }
+            };
+
+            let meta = symlink_metadata(&entry);
+            let name = entry.file_name()?.to_str()?;
+
+            let link = read_link(&entry);
+            if let Err(ref e) = link {
+                error_callback(&format!("couldn't read link {}: {}", entry.display(), e));
+                return None;
+            }
+            let link = link.ok()?;
+            let link = link.strip_prefix(&source);
+            if let Err(e) = link {
+                error_callback(&format!(
+                    "link points to outside the directory, skipping {}: {}",
+                    entry.display(),
+                    e
+                ));
+                return None;
+            }
+            let link = link.ok()?;
+
+            let target = if link.is_file() {
+                let link = link.to_slash()?;
+                match links
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .position(|element| element == &link)
+                {
+                    Some(index) => index,
+                    None => {
+                        error_callback(&format!(
+                            "skipping link with no included target: {}",
+                            entry.display()
+                        ));
+                        return None;
+                    }
+                }
+            } else {
+                let link = link.to_slash()?;
+                match parents.iter().position(|element| element == &link) {
+                    Some(index) => index,
+                    None => {
+                        error_callback(&format!(
+                            "skipping link with no included target: {}",
+                            entry.display()
+                        ));
+                        return None;
+                    }
+                }
+            };
+
+            let mut name_array = [0; NAME_SIZE];
+            name_array[0..name.len()].copy_from_slice(name.as_bytes());
+            let mut header = SymlinkSection {
+                name:                  name_array,
+                parent:                parent as u32,
+                kind:                  link.is_file() as u8,
+                target:                target as u32,
+                time_accessed_nanos:   0,
+                time_accessed_seconds: 0,
+                time_modified_nanos:   0,
+                time_modified_seconds: 0,
+                mode:                  0,
+                readonly:              0,
+            };
+
+            if let Ok(ref meta) = meta {
+                if let Ok(accessed) = meta.accessed() {
+                    if let Ok(accessed) = accessed.duration_since(SystemTime::UNIX_EPOCH) {
+                        header.time_accessed_seconds = accessed.as_secs();
+                        header.time_accessed_nanos = accessed.subsec_nanos();
+                    }
+                }
+                if let Ok(modified) = meta.modified() {
+                    if let Ok(modified) = modified.duration_since(SystemTime::UNIX_EPOCH) {
+                        header.time_modified_seconds = modified.as_secs();
+                        header.time_modified_nanos = modified.subsec_nanos();
+                    }
+                }
+                header.readonly = meta.permissions().readonly() as u8;
+                #[cfg(any(unix, target_os = "redox"))]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    header.mode = meta.permissions().mode();
+                }
+            }
+
+            let mut symlinks = symlinks.lock();
+            if let Ok(ref mut symlinks) = symlinks {
+                symlinks.push(header);
+            }
+
+            progress_callback();
+            Some(())
+        })
+        .count();
+
+    let mut target = archive.lock().unwrap();
+    let end = target.seek(SeekFrom::Current(0)).unwrap();
+
+    // write sections
+    let mut hasher = XxHash64::with_seed(HASH_SEED);
+    for section in directories.iter() {
+        hasher.write(section.as_bytes());
+        target.write_all(section.as_bytes()).unwrap();
+    }
+    for section in files.lock().unwrap().iter() {
+        hasher.write(section.as_bytes());
+        target.write_all(section.as_bytes()).unwrap();
+    }
+    for section in symlinks.lock().unwrap().iter() {
+        hasher.write(section.as_bytes());
+        target.write_all(section.as_bytes()).unwrap();
+    }
+    let payload_header = PayloadHeader {
+        kind:               0,
+        directory_sections: directories.len(),
+        file_sections:      files.lock().unwrap().len(),
+        symlink_sections:   symlinks.lock().unwrap().len(),
+        section_hash:       hasher.finish(),
+        payload_size:       end - zero,
+    };
+    target.write_all(payload_header.as_bytes()).unwrap();
+
+    payload_header.len()
 }

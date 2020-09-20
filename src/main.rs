@@ -1,7 +1,7 @@
 use std::{
     convert::TryInto,
     fs::File,
-    io::{BufWriter, Seek, SeekFrom, Write},
+    io::{BufWriter, Write},
     path::PathBuf,
 };
 
@@ -14,10 +14,12 @@ use rand::{
     distributions::{Alphanumeric, Distribution},
     thread_rng,
 };
-use scroll::{ctx::SizeWith, IOwrite, SizeWith, LE};
+
+mod types;
+use types::*;
 
 mod compress;
-use compress::compress_dir_multithread;
+use compress::compress;
 
 mod args;
 use args::*;
@@ -26,32 +28,32 @@ use args::*;
 #[clap(about, version)]
 pub struct Args {
     /// LZ4 compression level (0-12)
-    #[clap(short = "c", long, default_value = "8")]
+    #[clap(short = 'c', long, default_value = "8")]
     compression:      u32,
     /// Which runner to use
-    #[clap(short = "r", long, default_value = "native")]
+    #[clap(short = 'r', long, default_value = "native")]
     runner:           String,
     /// Unpack directory target (temp, local, cwd)
-    #[clap(short = "t", long, default_value = "temp")]
+    #[clap(short = 't', long, default_value = "temp")]
     unpack_target:    String,
     /// Unpack directory name [default: inferred from input directory]
-    #[clap(short = "d", long)]
+    #[clap(short = 'd', long)]
     unpack_directory: Option<String>,
     /// Versioning strategy (sidebyside, replace, none)
-    #[clap(short = "v", long, default_value = "sidebyside")]
+    #[clap(short = 'v', long, default_value = "sidebyside")]
     versioning:       String,
     /// Prints available runners
-    #[clap(short = "l", long)]
+    #[clap(short = 'l', long)]
     #[allow(dead_code)]
     list_runners:     bool,
     /// Open a console when starting the runner on Windows
-    #[clap(short = "s", long)]
+    #[clap(short = 's', long)]
     show_console:     bool,
     /// Set the current dir of the target to the unpack directory
-    #[clap(short = "w", long)]
+    #[clap(short = 'w', long)]
     current_dir:      bool,
     /// Verify the existence of all payload files before skipping extraction
-    #[clap(short = "e", long)]
+    #[clap(short = 'e', long)]
     verify_files:     bool,
     /// Path to the input directory
     #[clap(name = "input", parse(from_os_str))]
@@ -63,27 +65,6 @@ pub struct Args {
     #[clap(name = "output", parse(from_os_str))]
     output:           PathBuf,
 }
-
-#[repr(C)]
-#[derive(Clone, Copy, SizeWith, IOwrite)]
-struct DistributionInfo {
-    unpack_directory: [u8; 128],
-    command:          [u8; 128],
-}
-#[repr(C)]
-#[derive(Clone, Copy, SizeWith, IOwrite)]
-struct StarterInfo {
-    signature:      [u8; 8],
-    payload_offset: u64,
-    show_console:   u8,
-    current_dir:    u8,
-    verify_files:   u8,
-    uid:            [u8; 8],
-    unpack_target:  u8,
-    versioning:     u8,
-    wrappe_format:  u8,
-}
-const WRAPPE_FORMAT: u8 = 100;
 
 fn main() {
     color_backtrace::install();
@@ -154,10 +135,9 @@ fn main() {
         )
         .blue()
     );
-
     let mut writer = BufWriter::new(file);
     let mut decoder = Decoder::new(runner).unwrap();
-    let payload_start = std::io::copy(&mut decoder, &mut writer).unwrap();
+    std::io::copy(&mut decoder, &mut writer).unwrap();
 
     println!(
         "{} {}compressing {} files and directories…",
@@ -173,7 +153,7 @@ fn main() {
     bar_progress.set_length(count);
     bar_progress.set_position(0);
     bar_progress.enable_steady_tick(12);
-    let compressed = compress_dir_multithread(
+    let compressed = compress(
         &source,
         &mut writer,
         args.compression,
@@ -202,7 +182,7 @@ fn main() {
         style(compressed).magenta(),
         style("files and directories").green(),
         if compressed < count {
-            style(format!(" (skipped {} files)", count - compressed))
+            style(format!(" (skipped {})", count - compressed))
                 .bold()
                 .red()
         } else {
@@ -215,19 +195,9 @@ fn main() {
         style("[4/4]").bold().black(),
         Emoji("📃 ", "")
     );
-    let payload_end = writer.seek(SeekFrom::End(0)).unwrap();
-
-    let dist = DistributionInfo {
-        unpack_directory,
-        command,
-    };
-    writer.iowrite_with(dist, LE).unwrap();
 
     let info = StarterInfo {
         signature: [0x50, 0x45, 0x33, 0x44, 0x41, 0x54, 0x41, 0x00],
-        payload_offset: payload_end - payload_start
-            + StarterInfo::size_with(&LE) as u64
-            + DistributionInfo::size_with(&LE) as u64,
         show_console: args.show_console.into(),
         current_dir: args.current_dir.into(),
         verify_files: args.verify_files.into(),
@@ -240,10 +210,12 @@ fn main() {
             .unwrap(),
         unpack_target,
         versioning,
+        unpack_directory,
+        command,
         wrappe_format: WRAPPE_FORMAT,
     };
-    writer.iowrite_with(info, LE).unwrap();
+    writer.write_all(info.as_bytes()).unwrap();
 
     writer.flush().unwrap();
-    println!("     {} {}", Emoji("✨ ", ""), style("done!").green());
+    println!("      {}{}", Emoji("✨ ", ""), style("done!").green());
 }

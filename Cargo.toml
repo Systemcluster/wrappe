@@ -45,19 +45,18 @@ panic = "abort"
 minilz4 = "0.4.0"
 staticfilemap = "0.1.2"
 
-clap = {package = "clap", version = "3.0.0-beta.1"}
+clap = {package = "clap", version = "3.0.0-beta.2"}
 color-backtrace = "0.4.2"
 console = "0.12.0"
 indicatif = "0.15.0"
 jwalk = "0.5.1"
 num_cpus = "1.13.0"
+path-slash = "0.1.3"
 rand = "0.7.3"
 rayon = "1.4.0"
-scroll = {version = "0.10.1", default-features = false, features = [
-  "std",
-  "derive",
-]}
-tar = "0.4.30"
+sysinfo = "0.15.2"
+twox-hash = "1.5.0"
+zerocopy = "0.3.0"
 
 [build-dependencies]
 
