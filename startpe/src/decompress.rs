@@ -1,9 +1,11 @@
 use std::{
-    fs::{create_dir_all, read_link, File},
+    fs::{create_dir_all, read_link, remove_dir, remove_file, File},
     hash::Hasher,
     io::{copy, sink, Cursor, Read, Result},
     mem::size_of,
     path::{Path, PathBuf},
+    thread::sleep,
+    time::Duration,
 };
 
 use filetime::{set_file_times, set_symlink_file_times, FileTime};
@@ -228,6 +230,42 @@ pub fn decompress(
                 );
                 return false;
             }
+            let link = link.unwrap();
+            if !link.starts_with(unpack_dir) {
+                println!(
+                    "verification failed: symlink points to target outside the target directory: {}",
+                    path.display()
+                );
+                return false;
+            }
+            if symlink.kind == 0 {
+                // directory symlink
+                let target = unpack_dir.join(&directories[symlink.target as usize]);
+                if link != target
+                {
+                    println!(
+                        "verification failed: symlink points to wrong target: {} (expected: {})",
+                        target.display(),
+                        link.display(),
+                    );
+                    return false;
+                }
+            }
+            if symlink.kind == 1 {
+                // file symlink
+                let target = unpack_dir
+                    .join(&directories[files[symlink.target as usize].parent as usize])
+                    .join(&file_names[symlink.target as usize]);
+                if target != link
+                {
+                    println!(
+                        "verification failed: symlink points to wrong target: {} (expected: {})",
+                        target.display(),
+                        link.display(),
+                    );
+                    return false;
+                }
+            }
             true
         });
     }
@@ -316,50 +354,67 @@ pub fn decompress(
         {
             println!("creating symlinks...");
             symlinks.par_iter().enumerate().for_each(|(i, symlink)| {
-                let name = &symlink_names[i];
-                let path = &directories[symlink.parent as usize].join(&name);
+                let path = unpack_dir
+                    .join(&directories[symlink.parent as usize])
+                    .join(&symlink_names[i]);
                 // directory symlink
                 if symlink.kind == 0 {
-                    let target = &directories[symlink.target as usize];
+                    if path.exists() {
+                        remove_dir(&path).unwrap_or_else(|e| {
+                            panic!(
+                                "failed to remove existing symlink {}: {}",
+                                path.display(),
+                                e
+                            )
+                        });
+                    }
+                    while path.exists() {
+                        sleep(Duration::from_millis(20));
+                    }
+                    let target = unpack_dir.join(&directories[symlink.target as usize]);
                     #[cfg(windows)]
                     {
                         use ::std::os::windows::fs::symlink_dir;
-                        symlink_dir(&path, &target).unwrap_or_else(|e| {
+                        symlink_dir(&target, &path).unwrap_or_else(|e| {
                             panic!("failed to create symlink {}: {}", path.display(), e)
                         });
                     }
                     #[cfg(any(unix, target_os = "redox"))]
                     {
                         use ::std::os::unix::fs::symlink;
-                        symlink(&path, &target).unwrap_or_else(|e| {
+                        symlink(&target, &path).unwrap_or_else(|e| {
                             panic!("failed to create symlink {}: {}", path.display(), e)
                         });
                     }
                 }
                 // file symlink
                 if symlink.kind == 1 {
-                    let target = &files[symlink.target as usize];
-                    let target = &directories[target.parent as usize].join(
-                        std::str::from_utf8(
-                            &target.name[0..(target
-                                .name
-                                .iter()
-                                .position(|&c| c == b'\0')
-                                .unwrap_or(target.name.len()))],
-                        )
-                        .unwrap(),
-                    );
+                    if path.exists() {
+                        remove_file(&path).unwrap_or_else(|e| {
+                            panic!(
+                                "failed to remove existing symlink {}: {}",
+                                path.display(),
+                                e
+                            )
+                        });
+                    }
+                    while path.exists() {
+                        sleep(Duration::from_millis(20));
+                    }
+                    let target = unpack_dir
+                        .join(&directories[files[symlink.target as usize].parent as usize])
+                        .join(&file_names[symlink.target as usize]);
                     #[cfg(windows)]
                     {
                         use ::std::os::windows::fs::symlink_file;
-                        symlink_file(&path, &target).unwrap_or_else(|e| {
+                        symlink_file(&target, &path).unwrap_or_else(|e| {
                             panic!("failed to create symlink {}: {}", path.display(), e)
                         });
                     }
                     #[cfg(any(unix, target_os = "redox"))]
                     {
                         use ::std::os::unix::fs::symlink;
-                        symlink(&path, &target).unwrap_or_else(|e| {
+                        symlink(&target, &path).unwrap_or_else(|e| {
                             panic!("failed to create symlink {}: {}", path.display(), e)
                         });
                     }

@@ -364,6 +364,19 @@ pub fn compress<
                 return None;
             }
             let link = link.ok()?;
+            let link = link.strip_prefix(".").unwrap_or(&link);
+            let link = entry.parent().unwrap().join(link);
+            let link = link.canonicalize();
+            if let Err(e) = link {
+                error_callback(&format!(
+                    "link could not be canonicalized, skipping {}: {}",
+                    entry.display(),
+                    e
+                ));
+                return None;
+            }
+            let link = link.ok()?;
+            let is_file = link.is_file();
             let link = link.strip_prefix(&source);
             if let Err(e) = link {
                 error_callback(&format!(
@@ -375,7 +388,7 @@ pub fn compress<
             }
             let link = link.ok()?;
 
-            let target = if link.is_file() {
+            let target = if is_file {
                 let link = link.to_slash()?;
                 match links
                     .lock()
@@ -411,7 +424,7 @@ pub fn compress<
             let mut header = SymlinkSection {
                 name:                  name_array,
                 parent:                parent as u32,
-                kind:                  link.is_file() as u8,
+                kind:                  is_file as u8,
                 target:                target as u32,
                 time_accessed_nanos:   0,
                 time_accessed_seconds: 0,
