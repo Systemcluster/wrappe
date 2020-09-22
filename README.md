@@ -37,15 +37,20 @@ FLAGS:
     -h, --help            Prints help information
     -l, --list-runners    Prints available runners
     -s, --show-console    Open a console when starting the runner on Windows
-    -e, --verify-files    Verify the existence of all payload files before skipping extraction
     -V, --version         Prints version information
 
 OPTIONS:
     -c, --compression <compression>              LZ4 compression level (0-12) [default: 8]
     -r, --runner <runner>                        Which runner to use [default: native]
-    -d, --unpack-directory <unpack-directory>    Unpack directory name [default: inferred from input directory]
-    -t, --unpack-target <unpack-target>          Unpack directory target (temp, local, cwd) [default: temp]
-    -v, --versioning <versioning>                Versioning strategy (sidebyside, replace, none) [default: sidebyside]
+    -d, --unpack-directory <unpack-directory>
+            Unpack directory name [default: inferred from input directory]
+    -t, --unpack-target <unpack-target>
+            Unpack directory target (temp, local, cwd) [default: temp]
+    -e, --verification <verification>
+            Verify the unpacked payload before skipping extraction (existence, checksum, none)
+            [default: existence]
+    -v, --versioning <versioning>
+            Versioning strategy (sidebyside, replace, none) [default: sidebyside]
 ```
 
 ### Flags and Options
@@ -59,10 +64,6 @@ By default the working directory of the unpacked executable is set to the workin
 On Windows, the runner executable is compiled for the [windows-subsystem](https://rust-lang.github.io/rfcs/1665-windows-subsystem.html) and runs without creating a console window. If this flag is set, a console will be created unconditionally.
 
 Without this flag the runner executable will still attach to a console if started from one.
-
-#### verify-files
-
-Check for the existence of all payload files before skipping extraction.
 
 #### compression
 
@@ -87,6 +88,16 @@ This option specifies the directory the packed files are unpacked to. Accepted v
 * `cwd`: The files will be unpacked to the working directory of the runner executable.
 
 It defaults to `temp`.
+
+#### verification
+
+This option specifies the verification of the unpacked payload before skipping extraction. Accepted values are:
+
+* `existence`: All files in the payload will be checked for existence.
+* `checksum`: A checksum for all files will be calculated and compared with the checksum calculated during the packing process.
+* `none`: No verification will be performed.
+
+It defaults to `existence`.
 
 #### versioning
 

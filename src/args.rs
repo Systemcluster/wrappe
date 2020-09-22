@@ -83,6 +83,31 @@ pub fn get_versioning(versioning: &str) -> u8 {
     }
 }
 
+pub fn get_verification(verification: &str) -> u8 {
+    match verification.to_lowercase().as_str() {
+        "none" => 0,
+        "default" => 1,
+        "existence" => 1,
+        "checksum" => 2,
+        _ => {
+            println!(
+                "{}: {}",
+                style("not a valid verification option").red(),
+                style(verification).red(),
+            );
+            println!(
+                "{}: {}",
+                style("available verification options").blue(),
+                format!(
+                    "off, existence {}, checksum",
+                    style("(default)").bold().black()
+                )
+            );
+            std::process::exit(-1);
+        }
+    }
+}
+
 pub fn get_source(source: &Path) -> PathBuf {
     let source = Path::new(&std::env::current_dir().unwrap()).join(&source);
     let source = std::fs::canonicalize(&source).unwrap_or_else(|_| {

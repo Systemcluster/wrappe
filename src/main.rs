@@ -42,6 +42,9 @@ pub struct Args {
     /// Versioning strategy (sidebyside, replace, none)
     #[clap(short = 'v', long, default_value = "sidebyside")]
     versioning:       String,
+    /// Verify the unpacked payload before skipping extraction (existence, checksum, none)
+    #[clap(short = 'e', long, default_value = "existence")]
+    verification:     String,
     /// Prints available runners
     #[clap(short = 'l', long)]
     #[allow(dead_code)]
@@ -52,9 +55,6 @@ pub struct Args {
     /// Set the current dir of the target to the unpack directory
     #[clap(short = 'w', long)]
     current_dir:      bool,
-    /// Verify the existence of all payload files before skipping extraction
-    #[clap(short = 'e', long)]
-    verify_files:     bool,
     /// Path to the input directory
     #[clap(name = "input", parse(from_os_str))]
     input:            PathBuf,
@@ -83,6 +83,7 @@ fn main() {
     let output = get_output(&args.output);
     let command = get_command(&args.command, &source);
     let unpack_directory = get_unpack_directory(&args.unpack_directory, &source);
+    let verification = get_verification(&args.verification);
 
     let file = File::create(&output).unwrap_or_else(|_| {
         println!(
@@ -200,7 +201,7 @@ fn main() {
         signature: [0x50, 0x45, 0x33, 0x44, 0x41, 0x54, 0x41, 0x00],
         show_console: args.show_console.into(),
         current_dir: args.current_dir.into(),
-        verify_files: args.verify_files.into(),
+        verification,
         uid: Alphanumeric
             .sample_iter(thread_rng())
             .take(8)

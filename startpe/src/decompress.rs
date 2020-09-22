@@ -1,7 +1,7 @@
 use std::{
     fs::{create_dir_all, read_link, File},
     hash::Hasher,
-    io::{copy, Cursor, Read, Result},
+    io::{copy, sink, Cursor, Read, Result},
     mem::size_of,
     path::{Path, PathBuf},
 };
@@ -40,7 +40,7 @@ impl<R: Read, H: Hasher> Read for HashReader<R, H> {
 }
 
 pub fn decompress(
-    mmap: &[u8], end: usize, unpack_dir: &Path, should_verify: bool, mut should_extract: bool,
+    mmap: &[u8], end: usize, unpack_dir: &Path, verification: u8, mut should_extract: bool,
     version: &str,
 ) {
     // parse payload information
@@ -69,7 +69,7 @@ pub fn decompress(
     let directory_sections_start =
         file_sections_start - directory_sections * size_of::<DirectorySection>();
 
-    let mut hasher = XxHash64::with_seed(HASH_SEED);
+    let mut section_hasher = XxHash64::with_seed(HASH_SEED);
 
     let mut directories = Vec::<PathBuf>::from([PathBuf::from("")]);
     let mut file_names = Vec::<&str>::new();
@@ -84,7 +84,7 @@ pub fn decompress(
         .enumerate()
     {
         let section_start = directory_sections_start + i * size_of::<DirectorySection>();
-        hasher.write(section);
+        section_hasher.write(section);
         let section = LayoutVerified::<_, DirectorySection>::new(
             &mmap[section_start..section_start + size_of::<DirectorySection>()],
         )
@@ -109,7 +109,7 @@ pub fn decompress(
         .enumerate()
     {
         let section_start = file_sections_start + i * size_of::<FileSectionHeader>();
-        hasher.write(section);
+        section_hasher.write(section);
         let section = LayoutVerified::<_, FileSectionHeader>::new(
             &mmap[section_start..section_start + size_of::<FileSectionHeader>()],
         )
@@ -133,7 +133,7 @@ pub fn decompress(
         .enumerate()
     {
         let section_start = symlink_sections_start + i * size_of::<SymlinkSection>();
-        hasher.write(section);
+        section_hasher.write(section);
         let section = LayoutVerified::<_, SymlinkSection>::new(
             &mmap[section_start..section_start + size_of::<SymlinkSection>()],
         )
@@ -152,7 +152,7 @@ pub fn decompress(
         symlinks.push(section);
     }
 
-    let section_hash = hasher.finish();
+    let section_hash = section_hasher.finish();
     if section_hash != payload_header.section_hash {
         let expected = payload_header.section_hash;
         panic!(
@@ -168,28 +168,68 @@ pub fn decompress(
     lockfile.lock().unwrap();
 
     // verify files
-    if should_verify {
-        println!("verifying...");
-        for (i, file) in files.iter().enumerate() {
+    if verification > 0 && !should_extract {
+        println!("verifying files...");
+        should_extract = !files.par_iter().enumerate().all(|(i, file)| {
             let path = unpack_dir
                 .join(&directories[file.parent as usize])
                 .join(&file_names[i]);
             if !path.is_file() {
                 println!("verification failed: not a file: {}", path.display());
-                should_extract = true;
-                break;
+                return false;
             }
-        }
-        for (i, symlink) in symlinks.iter().enumerate() {
+            if verification == 2 {
+                // verify checksums
+                let target = File::open(&path);
+                if target.is_err() {
+                    println!(
+                        "verification failed: couldn't open file: {}",
+                        path.display()
+                    );
+                    return false;
+                }
+                let target = target.unwrap();
+                let mut hasher = XxHash64::with_seed(HASH_SEED);
+                let mut reader = HashReader::new(&target, &mut hasher);
+                if copy(&mut reader, &mut sink()).is_err() {
+                    println!(
+                        "verification failed: couldn't read file: {}",
+                        path.display()
+                    );
+                    return false;
+                };
+                let file_hash = hasher.finish();
+                if file_hash != file.file_hash {
+                    let expected = file.file_hash;
+                    println!(
+                        "verification failed: file hash ({}) differs from expected file hash ({}): {}",
+                        file_hash,
+                        expected,
+                        path.display()
+                    );
+                    return false;
+                }
+            }
+            true
+        });
+    }
+    // verify symlinks
+    if verification > 0 && !should_extract {
+        println!("verifying symlinks...");
+        should_extract = !symlinks.par_iter().enumerate().all(|(i, symlink)| {
             let path = unpack_dir
                 .join(&directories[symlink.parent as usize])
                 .join(&symlink_names[i]);
-            if read_link(&path).is_err() {
-                println!("verification failed: not a symlink: {}", path.display());
-                should_extract = true;
-                break;
+            let link = read_link(&path);
+            if link.is_err() {
+                println!(
+                    "verification failed: not a valid symlink: {}",
+                    path.display()
+                );
+                return false;
             }
-        }
+            true
+        });
     }
 
     if should_extract {

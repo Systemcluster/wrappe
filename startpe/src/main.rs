@@ -118,16 +118,20 @@ fn main() {
         _ => true,
     };
 
-    let should_verify = info.verify_files == 1 && !should_extract;
-    println!("should verify: {}", should_verify);
+    let verification = if !should_extract {
+        info.verification
+    } else {
+        0
+    };
+    println!("should verify: {}", verification);
     println!("should extract: {}", should_extract);
 
-    if should_extract || should_verify {
+    if should_extract || verification > 0 {
         decompress(
             &mmap,
             info_start,
             &unpack_dir,
-            should_verify,
+            verification,
             should_extract,
             version,
         );

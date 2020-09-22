@@ -9,7 +9,7 @@ pub struct StarterInfo {
     pub signature:        [u8; 8],
     pub show_console:     u8,
     pub current_dir:      u8,
-    pub verify_files:     u8,
+    pub verification:     u8,
     pub uid:              [u8; 8],
     pub unpack_target:    u8,
     pub versioning:       u8,
