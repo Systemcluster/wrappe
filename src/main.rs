@@ -10,10 +10,6 @@ use console::{style, Emoji};
 use indicatif::{ProgressBar, ProgressStyle};
 use jwalk::WalkDir;
 use minilz4::Decoder;
-use rand::{
-    distributions::{Alphanumeric, Distribution},
-    thread_rng,
-};
 
 mod types;
 use types::*;
@@ -42,6 +38,9 @@ pub struct Args {
     /// Versioning strategy (sidebyside, replace, none)
     #[clap(short = 'v', long, default_value = "sidebyside")]
     versioning:       String,
+    /// Version specifier override [default: randomly generated]
+    #[clap(short = 'V', long)]
+    version:          Option<String>,
     /// Verification of existing unpacked data (existence, checksum, none)
     #[clap(short = 'e', long, default_value = "existence")]
     verification:     String,
@@ -79,10 +78,11 @@ fn main() {
     let runner = get_runner(&args.runner);
     let unpack_target = get_unpack_target(&args.unpack_target);
     let versioning = get_versioning(&args.versioning);
+    let version = get_version(args.version.as_deref());
     let source = get_source(&args.input);
     let output = get_output(&args.output);
     let command = get_command(&args.command, &source);
-    let unpack_directory = get_unpack_directory(&args.unpack_directory, &source);
+    let unpack_directory = get_unpack_directory(args.unpack_directory.as_deref(), &source);
     let verification = get_verification(&args.verification);
 
     let file = File::create(&output).unwrap_or_else(|_| {
@@ -202,13 +202,7 @@ fn main() {
         show_console: args.show_console.into(),
         current_dir: args.current_dir.into(),
         verification,
-        uid: Alphanumeric
-            .sample_iter(thread_rng())
-            .take(8)
-            .collect::<String>()
-            .as_bytes()
-            .try_into()
-            .unwrap(),
+        uid: version.as_bytes().try_into().unwrap(),
         unpack_target,
         versioning,
         unpack_directory,

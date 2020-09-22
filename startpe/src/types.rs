@@ -10,7 +10,7 @@ pub struct StarterInfo {
     pub show_console:     u8,
     pub current_dir:      u8,
     pub verification:     u8,
-    pub uid:              [u8; 8],
+    pub uid:              [u8; 16],
     pub unpack_target:    u8,
     pub versioning:       u8,
     pub wrappe_format:    u8,

@@ -40,8 +40,10 @@ FLAGS:
     -V, --version         Prints version information
 
 OPTIONS:
-    -c, --compression <compression>              LZ4 compression level (0-12) [default: 8]
-    -r, --runner <runner>                        Which runner to use [default: native]
+    -c, --compression <compression>
+            LZ4 compression level (0-12) [default: 8]
+    -r, --runner <runner>
+            Which runner to use [default: native]
     -d, --unpack-directory <unpack-directory>
             Unpack directory name [default: inferred from input directory]
     -t, --unpack-target <unpack-target>
@@ -50,6 +52,8 @@ OPTIONS:
             Verification of existing unpacked data (existence, checksum, none) [default: existence]
     -v, --versioning <versioning>
             Versioning strategy (sidebyside, replace, none) [default: sidebyside]
+    -V, --version <version>
+            Version specifier override [default: randomly generated]
 ```
 
 ### Flags and Options
@@ -102,11 +106,15 @@ It defaults to `existence`.
 
 This option specifies the versioning strategy. Accepted values are:
 
-* `sidebyside`: An individual directory will be created for every version. The version is determined by a unique identifier created during the packing process, so different runner executables will be unpacked to different directories. An already unpacked version will not be unpacked again.
+* `sidebyside`: An individual directory will be created for every version. The version is determined by a unique identifier created during the packing process, so different runner executables will be unpacked to different directories, unless manually specified. An already unpacked version will not be unpacked again.
 * `replace`: Already unpacked files from a different version will be overwritten. Unpacked files from the same version will not be upacked again.
 * `none`: Packed files are always unpacked and already unpacked files will be overwritten.
 
 It defaults to `sidebyside`.
+
+#### version
+
+This option specifies the version string. It defaults to a randomly generated string of 8 characters.
 
 ## Compilation
 

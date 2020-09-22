@@ -1,6 +1,10 @@
 use std::path::{Path, PathBuf};
 
 use console::style;
+use rand::{
+    distributions::{Alphanumeric, Distribution},
+    thread_rng,
+};
 use staticfilemap::StaticFileMap;
 
 #[derive(StaticFileMap)]
@@ -83,6 +87,26 @@ pub fn get_versioning(versioning: &str) -> u8 {
     }
 }
 
+pub fn get_version(version: Option<&str>) -> String {
+    let mut version = if let Some(version) = version {
+        if version.len() > 16 {
+            println!(
+                "{}",
+                style("version specifier is longer than 16 characters").red(),
+            );
+            std::process::exit(-1);
+        }
+        version.chars().collect::<Vec<_>>()
+    } else {
+        Alphanumeric
+            .sample_iter(thread_rng())
+            .take(8)
+            .collect::<Vec<_>>()
+    };
+    version.resize(16, 0 as char);
+    version.iter().collect()
+}
+
 pub fn get_verification(verification: &str) -> u8 {
     match verification.to_lowercase().as_str() {
         "none" => 0,
@@ -159,7 +183,7 @@ pub fn get_output(output: &Path) -> PathBuf {
         .join(output.file_name().unwrap())
 }
 
-pub fn get_unpack_directory(directory: &Option<String>, source: &Path) -> [u8; 128] {
+pub fn get_unpack_directory(directory: Option<&str>, source: &Path) -> [u8; 128] {
     let directory = if let Some(directory) = directory {
         directory.as_bytes()
     } else {
