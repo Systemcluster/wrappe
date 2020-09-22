@@ -3,8 +3,11 @@
 use std::{
     env::current_exe,
     fs::{read_link, File},
+    io::Write,
     mem::size_of,
+    panic::set_hook,
     process::Command,
+    time::SystemTime,
 };
 
 use memmap::MmapOptions;
@@ -29,6 +32,26 @@ mod versioning;
 use versioning::*;
 
 fn main() {
+    set_hook(Box::<_>::new(move |panic| {
+        if let Some(message) = panic.payload().downcast_ref::<&str>() {
+            eprintln!("{}", message);
+        } else if let Some(message) = panic.payload().downcast_ref::<String>() {
+            eprintln!("{}", message);
+        } else {
+            eprintln!("{}", panic);
+        }
+        #[cfg(windows)]
+        if let Ok(mut file) = File::create(format!(
+            "error-{}.txt",
+            SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs()
+        )) {
+            let _ = writeln!(file, "{}", panic);
+        }
+    }));
+
     let mut exe = current_exe().expect("couldn't get handle to current executable");
     while let Ok(link) = read_link(&exe) {
         exe = link;
