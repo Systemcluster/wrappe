@@ -42,7 +42,7 @@ pub struct Args {
     /// Versioning strategy (sidebyside, replace, none)
     #[clap(short = 'v', long, default_value = "sidebyside")]
     versioning:       String,
-    /// Verify the unpacked payload before skipping extraction (existence, checksum, none)
+    /// Verification of existing unpacked data (existence, checksum, none)
     #[clap(short = 'e', long, default_value = "existence")]
     verification:     String,
     /// Prints available runners

@@ -41,13 +41,19 @@ impl<R: Read, H: Hasher> Read for HashReader<R, H> {
     }
 }
 
+/// Decompress the payload and section data in `mmap` into `unpack_dir`.
+/// The data is expected to be in the following order at the end of `mmap`:
+/// - compressed file contents
+/// - directory sections
+/// - file section headers
+/// - symlink sections
+/// - payload section header
 pub fn decompress(
-    mmap: &[u8], end: usize, unpack_dir: &Path, verification: u8, mut should_extract: bool,
-    version: &str,
+    mmap: &[u8], unpack_dir: &Path, verification: u8, mut should_extract: bool, version: &str,
 ) {
-    // parse payload information
-    let payload_header_start = end - size_of::<PayloadHeader>();
-    let payload_header = LayoutVerified::<_, PayloadHeader>::new(&mmap[payload_header_start..end])
+    // read payload header sections
+    let payload_header_start = mmap.len() - size_of::<PayloadHeader>();
+    let payload_header = LayoutVerified::<_, PayloadHeader>::new(&mmap[payload_header_start..])
         .expect("couldn't read payload header")
         .into_ref();
 
@@ -73,27 +79,50 @@ pub fn decompress(
 
     let mut section_hasher = XxHash64::with_seed(HASH_SEED);
 
-    let mut directories = Vec::<PathBuf>::from([PathBuf::from("")]);
-    let mut file_names = Vec::<&str>::new();
-    let mut files = Vec::<&FileSectionHeader>::new();
-    let mut symlink_names = Vec::<&str>::new();
-    let mut symlinks = Vec::<&SymlinkSection>::new();
-
     println!("reading sections...");
-    // read directory sections
-    for (i, section) in mmap[directory_sections_start..file_sections_start]
+    let directories = mmap[directory_sections_start..file_sections_start]
         .chunks(size_of::<DirectorySection>())
         .enumerate()
-    {
-        let section_start = directory_sections_start + i * size_of::<DirectorySection>();
-        section_hasher.write(section);
-        let section = LayoutVerified::<_, DirectorySection>::new(
-            &mmap[section_start..section_start + size_of::<DirectorySection>()],
-        )
-        .expect("couldn't read payload header")
-        .into_ref();
-        directories.push(
-            directories[section.parent as usize].join(
+        .fold(
+            // start with the unpack directory as parent 0
+            Vec::<PathBuf>::from([PathBuf::from("")]),
+            |mut directories, (i, section)| {
+                let section_start = directory_sections_start + i * size_of::<DirectorySection>();
+                section_hasher.write(section);
+                let section = LayoutVerified::<_, DirectorySection>::new(
+                    &mmap[section_start..section_start + size_of::<DirectorySection>()],
+                )
+                .expect("couldn't read payload header")
+                .into_ref();
+
+                directories.push(
+                    directories[section.parent as usize].join(
+                        std::str::from_utf8(
+                            &section.name[0..(section
+                                .name
+                                .iter()
+                                .position(|&c| c == b'\0')
+                                .unwrap_or(section.name.len()))],
+                        )
+                        .unwrap(),
+                    ),
+                );
+                directories
+            },
+        );
+    let files = mmap[file_sections_start..symlink_sections_start]
+        .chunks(size_of::<FileSectionHeader>())
+        .enumerate()
+        .map(|(i, section)| {
+            let section_start = file_sections_start + i * size_of::<FileSectionHeader>();
+            section_hasher.write(section);
+            let section = LayoutVerified::<_, FileSectionHeader>::new(
+                &mmap[section_start..section_start + size_of::<FileSectionHeader>()],
+            )
+            .expect("couldn't read payload header")
+            .into_ref();
+            (
+                section,
                 std::str::from_utf8(
                     &section.name[0..(section
                         .name
@@ -102,57 +131,33 @@ pub fn decompress(
                         .unwrap_or(section.name.len()))],
                 )
                 .unwrap(),
-            ),
-        );
-    }
-    // read file sections
-    for (i, section) in mmap[file_sections_start..symlink_sections_start]
-        .chunks(size_of::<FileSectionHeader>())
-        .enumerate()
-    {
-        let section_start = file_sections_start + i * size_of::<FileSectionHeader>();
-        section_hasher.write(section);
-        let section = LayoutVerified::<_, FileSectionHeader>::new(
-            &mmap[section_start..section_start + size_of::<FileSectionHeader>()],
-        )
-        .expect("couldn't read payload header")
-        .into_ref();
-        file_names.push(
-            std::str::from_utf8(
-                &section.name[0..(section
-                    .name
-                    .iter()
-                    .position(|&c| c == b'\0')
-                    .unwrap_or(section.name.len()))],
             )
-            .unwrap(),
-        );
-        files.push(section);
-    }
-    // read symlink sections
-    for (i, section) in mmap[symlink_sections_start..payload_header_start]
+        })
+        .collect::<Vec<_>>();
+    let symlinks = mmap[symlink_sections_start..payload_header_start]
         .chunks(size_of::<SymlinkSection>())
         .enumerate()
-    {
-        let section_start = symlink_sections_start + i * size_of::<SymlinkSection>();
-        section_hasher.write(section);
-        let section = LayoutVerified::<_, SymlinkSection>::new(
-            &mmap[section_start..section_start + size_of::<SymlinkSection>()],
-        )
-        .expect("couldn't read payload header")
-        .into_ref();
-        symlink_names.push(
-            std::str::from_utf8(
-                &section.name[0..(section
-                    .name
-                    .iter()
-                    .position(|&c| c == b'\0')
-                    .unwrap_or(section.name.len()))],
+        .map(|(i, section)| {
+            let section_start = symlink_sections_start + i * size_of::<SymlinkSection>();
+            section_hasher.write(section);
+            let section = LayoutVerified::<_, SymlinkSection>::new(
+                &mmap[section_start..section_start + size_of::<SymlinkSection>()],
             )
-            .unwrap(),
-        );
-        symlinks.push(section);
-    }
+            .expect("couldn't read payload header")
+            .into_ref();
+            (
+                section,
+                std::str::from_utf8(
+                    &section.name[0..(section
+                        .name
+                        .iter()
+                        .position(|&c| c == b'\0')
+                        .unwrap_or(section.name.len()))],
+                )
+                .unwrap(),
+            )
+        })
+        .collect::<Vec<_>>();
 
     let section_hash = section_hasher.finish();
     if section_hash != payload_header.section_hash {
@@ -170,12 +175,12 @@ pub fn decompress(
     lockfile.lock().unwrap();
 
     // verify files
-    if verification > 0 && !should_extract {
+    if verification > 0 && !should_extract && file_sections > 0 {
         println!("verifying files...");
-        should_extract = !files.par_iter().enumerate().all(|(i, file)| {
+        should_extract = !files.par_iter().all(|(file, file_name)| {
             let path = unpack_dir
                 .join(&directories[file.parent as usize])
-                .join(&file_names[i]);
+                .join(&file_name);
             if !path.is_file() {
                 println!("verification failed: not a file: {}", path.display());
                 return false;
@@ -215,13 +220,14 @@ pub fn decompress(
             true
         });
     }
+
     // verify symlinks
-    if verification > 0 && !should_extract {
+    if verification > 0 && !should_extract && symlink_sections > 0 {
         println!("verifying symlinks...");
-        should_extract = !symlinks.par_iter().enumerate().all(|(i, symlink)| {
+        should_extract = !symlinks.par_iter().all(|(symlink, symlink_name)| {
             let path = unpack_dir
                 .join(&directories[symlink.parent as usize])
-                .join(&symlink_names[i]);
+                .join(&symlink_name);
             let link = read_link(&path);
             if link.is_err() {
                 println!(
@@ -238,8 +244,8 @@ pub fn decompress(
                 );
                 return false;
             }
+            // directory symlink
             if symlink.kind == 0 {
-                // directory symlink
                 let target = unpack_dir.join(&directories[symlink.target as usize]);
                 if link != target
                 {
@@ -251,11 +257,12 @@ pub fn decompress(
                     return false;
                 }
             }
+            // file symlink
             if symlink.kind == 1 {
-                // file symlink
+                let (file, file_name) = files[symlink.target as usize];
                 let target = unpack_dir
-                    .join(&directories[files[symlink.target as usize].parent as usize])
-                    .join(&file_names[symlink.target as usize]);
+                    .join(&directories[file.parent as usize])
+                    .join(&file_name);
                 if target != link
                 {
                     println!(
@@ -283,10 +290,10 @@ pub fn decompress(
         // unpack files
         println!("unpacking...");
         let files_start = directory_sections_start as u64 - payload_size;
-        files.par_iter().enumerate().for_each(|(i, file)| {
+        files.par_iter().for_each(|(file, file_name)| {
             let path = unpack_dir
                 .join(&directories[file.parent as usize])
-                .join(&file_names[i]);
+                .join(&file_name);
             let content = &mmap[(files_start + file.position) as usize
                 ..(files_start + file.position + file.size) as usize];
             let mut reader = HashReader::new(Cursor::new(&content), XxHash64::with_seed(HASH_SEED));
@@ -353,10 +360,10 @@ pub fn decompress(
         #[cfg(any(windows, unix, target_os = "redox"))]
         {
             println!("creating symlinks...");
-            symlinks.par_iter().enumerate().for_each(|(i, symlink)| {
+            symlinks.par_iter().for_each(|(symlink, symlink_name)| {
                 let path = unpack_dir
                     .join(&directories[symlink.parent as usize])
-                    .join(&symlink_names[i]);
+                    .join(&symlink_name);
                 // directory symlink
                 if symlink.kind == 0 {
                     if path.exists() {
@@ -401,9 +408,10 @@ pub fn decompress(
                     while path.exists() {
                         sleep(Duration::from_millis(20));
                     }
+                    let (file, file_name) = files[symlink.target as usize];
                     let target = unpack_dir
-                        .join(&directories[files[symlink.target as usize].parent as usize])
-                        .join(&file_names[symlink.target as usize]);
+                        .join(&directories[file.parent as usize])
+                        .join(&file_name);
                     #[cfg(windows)]
                     {
                         use ::std::os::windows::fs::symlink_file;

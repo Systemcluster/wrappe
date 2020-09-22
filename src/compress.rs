@@ -2,7 +2,7 @@ use std::{
     env::temp_dir,
     fs::{read_link, remove_file, symlink_metadata, File},
     hash::Hasher,
-    io::{copy, BufReader, BufWriter, Cursor, Read, Result, Seek, SeekFrom, Write},
+    io::{copy, Cursor, Read, Result, Seek, SeekFrom, Write},
     path::Path,
     sync::{Arc, Mutex},
     time::SystemTime,
@@ -43,6 +43,13 @@ impl<R: Read, H: Hasher> Read for HashReader<R, H> {
     }
 }
 
+/// Compress the payload in `source` and write it into `target`.
+/// The data is written subsequently in the following order:
+/// - compressed file contents
+/// - directory sections
+/// - file section headers
+/// - symlink sections
+/// - payload section header
 pub fn compress<
     T: AsRef<Path>,
     W: Write + Seek + Sync + Send,
@@ -79,7 +86,8 @@ pub fn compress<
     };
 
     let mut directories = Vec::<DirectorySection>::new();
-    let mut parents = Vec::<String>::from(["".to_owned()]);
+    // start with the source directory as parent 0
+    let mut parents = Vec::<String>::from(["".to_string()]);
 
     // enumerate directories
     let _ = entries
@@ -134,6 +142,7 @@ pub fn compress<
 
     let zero = target.seek(SeekFrom::Current(0)).unwrap();
     let archive = Arc::new(Mutex::new(target));
+
     let files = Arc::new(Mutex::new(Vec::<FileSectionHeader>::new()));
     let links = Arc::new(Mutex::new(Vec::<String>::new()));
 
@@ -191,7 +200,7 @@ pub fn compress<
             let mut end = 0;
             let file_hash;
             let mut compressed_hash = 0;
-            let mut reader = HashReader::new(BufReader::new(file), XxHash64::with_seed(HASH_SEED));
+            let mut reader = HashReader::new(file, XxHash64::with_seed(HASH_SEED));
 
             if in_memory {
                 let data = reader.encode(EncoderBuilder::new().level(compression));
@@ -230,10 +239,8 @@ pub fn compress<
                 );
 
                 if let Err(e) = (|| -> Result<()> {
-                    let mut cache = File::create(&cache_path)?;
-                    let mut encoder = EncoderBuilder::new()
-                        .level(compression)
-                        .build(BufWriter::new(&mut cache))?;
+                    let cache = File::create(&cache_path)?;
+                    let mut encoder = EncoderBuilder::new().level(compression).build(&cache)?;
                     copy(&mut reader, &mut encoder)?;
                     encoder.finish()?.flush()?;
                     cache.sync_all()?;
@@ -244,10 +251,9 @@ pub fn compress<
                 }
 
                 if let Err(e) = (|| -> Result<()> {
-                    let mut cache = File::open(&cache_path)?;
+                    let cache = File::open(&cache_path)?;
                     let mut archive = archive.lock();
-                    let mut hasher =
-                        HashReader::new(BufReader::new(&mut cache), XxHash64::with_seed(HASH_SEED));
+                    let mut hasher = HashReader::new(&cache, XxHash64::with_seed(HASH_SEED));
                     if let Ok(ref mut archive) = archive {
                         start = archive.seek(SeekFrom::Current(0)).unwrap();
                         copy(&mut hasher, archive.by_ref())?;

@@ -47,8 +47,7 @@ OPTIONS:
     -t, --unpack-target <unpack-target>
             Unpack directory target (temp, local, cwd) [default: temp]
     -e, --verification <verification>
-            Verify the unpacked payload before skipping extraction (existence, checksum, none)
-            [default: existence]
+            Verification of existing unpacked data (existence, checksum, none) [default: existence]
     -v, --versioning <versioning>
             Versioning strategy (sidebyside, replace, none) [default: sidebyside]
 ```

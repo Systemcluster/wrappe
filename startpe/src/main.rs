@@ -151,8 +151,7 @@ fn main() {
 
     if should_extract || verification > 0 {
         decompress(
-            &mmap,
-            info_start,
+            &mmap[..info_start],
             &unpack_dir,
             verification,
             should_extract,
@@ -185,13 +184,12 @@ fn main() {
     command.current_dir(current_dir);
     command
         .spawn()
-        .unwrap_or_else(|e| panic!("failed to run: {}", e));
+        .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
 
 
     #[cfg(windows)]
     unsafe {
         if !console.is_null() {
-            use std::io::prelude::*;
             let _ = std::io::stdout().flush();
         }
         FreeConsole();
