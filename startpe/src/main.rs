@@ -28,6 +28,9 @@ use types::*;
 mod decompress;
 use decompress::*;
 
+mod permissions;
+use permissions::*;
+
 mod versioning;
 use versioning::*;
 
@@ -135,6 +138,18 @@ fn main() {
     }
     println!("target directory: {}", unpack_dir.display());
 
+    let run_path = &unpack_dir.join(
+        std::str::from_utf8(
+            &info.command[0..(info
+                .command
+                .iter()
+                .position(|&c| c == b'\0')
+                .unwrap_or(info.command.len()))],
+        )
+        .unwrap(),
+    );
+    println!("runpath: {}", run_path.display());
+
     let should_extract = match info.versioning {
         0 => get_version(&unpack_dir) != version,
         1 => get_version(&unpack_dir) != version,
@@ -150,13 +165,16 @@ fn main() {
     println!("should extract: {}", should_extract);
 
     if should_extract || verification > 0 {
-        decompress(
+        let extracted = decompress(
             &mmap[..info_start],
             &unpack_dir,
             verification,
             should_extract,
             version,
         );
+        if extracted {
+            set_executable_permissions(&run_path);
+        }
     }
 
     let current_dir = std::env::current_dir().unwrap();
@@ -165,17 +183,6 @@ fn main() {
     } else {
         &current_dir
     };
-    let run_path = &unpack_dir.join(
-        std::str::from_utf8(
-            &info.command[0..(info
-                .command
-                .iter()
-                .position(|&c| c == b'\0')
-                .unwrap_or(info.command.len()))],
-        )
-        .unwrap(),
-    );
-    println!("runpath: {}", run_path.display());
     println!("current dir: {}", current_dir.display());
     println!("running...");
     let args = std::env::args().skip(1).collect::<Vec<_>>();

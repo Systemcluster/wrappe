@@ -50,7 +50,7 @@ impl<R: Read, H: Hasher> Read for HashReader<R, H> {
 /// - payload section header
 pub fn decompress(
     mmap: &[u8], unpack_dir: &Path, verification: u8, mut should_extract: bool, version: &str,
-) {
+) -> bool {
     // read payload header sections
     let payload_header_start = mmap.len() - size_of::<PayloadHeader>();
     let payload_header = LayoutVerified::<_, PayloadHeader>::new(&mmap[payload_header_start..])
@@ -446,4 +446,6 @@ pub fn decompress(
 
         set_version(&unpack_dir, version);
     }
+
+    should_extract
 }
