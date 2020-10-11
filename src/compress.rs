@@ -9,7 +9,6 @@ use std::{
 };
 
 use jwalk::WalkDir;
-use minilz4::{Encode, EncoderBuilder};
 use path_slash::PathExt;
 use rand::{
     distributions::{Alphanumeric, Distribution},
@@ -19,6 +18,7 @@ use rayon::prelude::*;
 use sysinfo::{System, SystemExt};
 use twox_hash::XxHash64;
 use zerocopy::AsBytes;
+use zstd::stream::copy_encode;
 
 use crate::types::*;
 
@@ -203,13 +203,12 @@ pub fn compress<
             let mut reader = HashReader::new(file, XxHash64::with_seed(HASH_SEED));
 
             if in_memory {
-                let data = reader.encode(EncoderBuilder::new().level(compression));
-                if let Err(e) = data {
+                let mut data = Vec::new();
+                if let Err(e) = copy_encode(&mut reader, &mut data, compression as i32) {
                     error_callback(&format!("couldn't compress {}: {}", entry.display(), e));
                     return None;
                 }
 
-                let data = data.ok()?;
                 let mut archive = archive.lock();
                 if let Ok(ref mut archive) = archive {
                     start = archive.seek(SeekFrom::Current(0)).unwrap();
@@ -239,10 +238,9 @@ pub fn compress<
                 );
 
                 if let Err(e) = (|| -> Result<()> {
-                    let cache = File::create(&cache_path)?;
-                    let mut encoder = EncoderBuilder::new().level(compression).build(&cache)?;
-                    copy(&mut reader, &mut encoder)?;
-                    encoder.finish()?.flush()?;
+                    let mut cache = File::create(&cache_path)?;
+                    copy_encode(&mut reader, &cache, compression as i32)?;
+                    cache.flush()?;
                     cache.sync_all()?;
                     Ok(())
                 })() {

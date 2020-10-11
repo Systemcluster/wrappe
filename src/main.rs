@@ -1,7 +1,7 @@
 use std::{
     convert::TryInto,
     fs::File,
-    io::{BufWriter, Write},
+    io::{BufWriter, Cursor, Write},
     path::PathBuf,
 };
 
@@ -9,7 +9,7 @@ use clap::Clap;
 use console::{style, Emoji};
 use indicatif::{ProgressBar, ProgressStyle};
 use jwalk::WalkDir;
-use minilz4::Decoder;
+use zstd::stream::copy_decode;
 
 mod types;
 use types::*;
@@ -23,7 +23,7 @@ use args::*;
 #[derive(Clap)]
 #[clap(about, version)]
 pub struct Args {
-    /// LZ4 compression level (0-12)
+    /// Zstd compression level (0-21)
     #[clap(short = 'c', long, default_value = "8")]
     compression:      u32,
     /// Which runner to use
@@ -137,8 +137,7 @@ fn main() {
         .blue()
     );
     let mut writer = BufWriter::new(file);
-    let mut decoder = Decoder::new(runner).unwrap();
-    std::io::copy(&mut decoder, &mut writer).unwrap();
+    copy_decode(Cursor::new(&runner), &mut writer).unwrap();
 
     println!(
         "{} {}compressing {} files and directories…",

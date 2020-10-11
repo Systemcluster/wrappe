@@ -10,10 +10,10 @@ use std::{
 
 use filetime::{set_file_times, set_symlink_file_times, FileTime};
 use fslock::LockFile;
-use minilz4::Decoder;
 use rayon::prelude::*;
 use twox_hash::XxHash64;
 use zerocopy::LayoutVerified;
+use zstd::stream::copy_decode;
 
 use crate::types::*;
 
@@ -297,9 +297,8 @@ pub fn decompress(
             let content = &mmap[(files_start + file.position) as usize
                 ..(files_start + file.position + file.size) as usize];
             let mut reader = HashReader::new(Cursor::new(&content), XxHash64::with_seed(HASH_SEED));
-            let mut decoder = Decoder::new(&mut reader).unwrap();
             let mut output = File::create(&path).unwrap();
-            copy(&mut decoder, &mut output)
+            copy_decode(&mut reader, &mut output)
                 .unwrap_or_else(|e| panic!("failed to unpack file {}: {}", path.display(), e));
             let compressed_hash = reader.finish();
             if file.compressed_hash != compressed_hash {

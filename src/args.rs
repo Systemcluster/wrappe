@@ -11,7 +11,8 @@ use staticfilemap::StaticFileMap;
 #[parse = "env"]
 #[names = "WRAPPE_TARGETS"]
 #[files = "WRAPPE_FILES"]
-#[compression = 8]
+#[compression = 16]
+#[algorithm = "zstd"]
 struct StarterMap;
 
 pub fn list_runners() {

@@ -5,7 +5,7 @@ Packer to create self-contained single-binary applications from executables and 
 ## Features
 
 * Packing of executables and their dependencies into single self-contained binaries
-* Compression of packed payloads with LZ4
+* Compression of packed payloads with Zstandard
 * Streaming decompression with minimal memory overhead
 * Compression and decompression of files in parallel
 * Decompression only when necessary by checking existing files
@@ -41,7 +41,7 @@ FLAGS:
 
 OPTIONS:
     -c, --compression <compression>
-            LZ4 compression level (0-12) [default: 8]
+            Zstd compression level (0-21) [default: 8]
     -r, --runner <runner>
             Which runner to use [default: native]
     -d, --unpack-directory <unpack-directory>
@@ -70,7 +70,7 @@ Without this flag the runner executable will still attach to a console if starte
 
 #### compression
 
-This option controls the LZ4 compression level. Accepted values range from `0` to `12`.
+This option controls the Zstandard compression level. Accepted values range from `0` to `21`.
 
 #### runner
 

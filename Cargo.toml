@@ -42,8 +42,7 @@ panic = "abort"
 
 [dependencies]
 
-minilz4 = "0.4.0"
-staticfilemap = "0.1.2"
+staticfilemap = {version = "0.1.4", default-features = false, features = ["zstd"]}
 
 clap = {package = "clap", version = "3.0.0-beta.2"}
 color-backtrace = "0.4.2"
@@ -53,10 +52,11 @@ jwalk = "0.5.1"
 num_cpus = "1.13.0"
 path-slash = "0.1.3"
 rand = "0.7.3"
-rayon = "1.4.0"
-sysinfo = "0.15.2"
-twox-hash = "1.5.0"
+rayon = "1.4.1"
+sysinfo = "0.15.3"
+twox-hash = {version = "1.6.0", default-features = false}
 zerocopy = "0.3.0"
+zstd = "0.5.3"
 
 [build-dependencies]
 
