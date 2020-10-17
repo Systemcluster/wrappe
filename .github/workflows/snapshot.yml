@@ -74,6 +74,11 @@ jobs:
           mv target/x86_64-pc-windows-gnu/release/wrappe.exe wrappe.exe
           mv target/x86_64-unknown-linux-musl/release/wrappe wrappe-linux
 
+      - name: Strip symbols
+        run: |
+          strip -S wrappe.exe
+          strip -S wrappe-linux
+
       - name: Upload release
         uses: marvinpinto/action-automatic-releases@latest
         with:
@@ -135,6 +140,10 @@ jobs:
       - name: Collect executables
         run: |
           mv target/x86_64-apple-darwin/release/wrappe wrappe-macos
+
+      - name: Strip symbols
+        run: |
+          strip -S wrappe-macos
 
       - name: Get release
         uses: octokit/request-action@v2.x

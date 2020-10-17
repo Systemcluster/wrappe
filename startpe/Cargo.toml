@@ -8,6 +8,7 @@ name = "startpe"
 publish = false
 repository = "https://github.com/Systemcluster/wrappe"
 version = "0.0.0"
+workspace = ".."
 
 [[bin]]
 

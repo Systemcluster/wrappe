@@ -89,7 +89,30 @@ fn compile_runner(target: &str, out_dir: &str) -> bool {
     let status = command
         .status()
         .unwrap_or_else(|e| panic!("couldn't compile runner for target {}: {}", &target, e));
-    status.success()
+
+    if status.success() {
+        if let Ok(strip) = which("strip") {
+            let path = format!(
+                "{}/{}/{}/{}{}",
+                out_dir,
+                target,
+                profile,
+                STARTER_NAME,
+                if target.contains("windows") {
+                    ".exe"
+                } else {
+                    ""
+                }
+            );
+            let _ = Command::new(strip)
+                .args(&["-S", &path])
+                .output()
+                .map_err(|error| eprintln!("failed to strip symbols: {}", error));
+        };
+        true
+    } else {
+        false
+    }
 }
 
 fn get_git_hash() -> Option<String> {
