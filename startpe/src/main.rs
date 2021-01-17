@@ -86,14 +86,17 @@ fn main() {
         }
     }
 
-    println!(
-        "{} {}{}",
-        env!("CARGO_PKG_NAME"),
-        env!("CARGO_PKG_VERSION"),
-        option_env!("GIT_HASH")
-            .map(|hash| format!(" ({})", hash))
-            .unwrap_or_default()
-    );
+    let show_information = info.show_information;
+    if show_information >= 1 {
+        println!(
+            "{} {}{}",
+            env!("CARGO_PKG_NAME"),
+            env!("CARGO_PKG_VERSION"),
+            option_env!("GIT_HASH")
+                .map(|hash| format!(" ({})", hash))
+                .unwrap_or_default()
+        );
+    }
 
     if info.signature != [0x50, 0x45, 0x33, 0x44, 0x41, 0x54, 0x41, 0x00] {
         panic!("file signature is invalid");
@@ -113,8 +116,9 @@ fn main() {
             .unwrap_or(info.unpack_directory.len()))],
     )
     .unwrap();
-    println!("{}", unpack_dir_name);
-    println!();
+    if show_information >= 1 {
+        println!("{}", unpack_dir_name);
+    }
 
     let version = std::str::from_utf8(
         &info.uid[0..(info
@@ -124,7 +128,10 @@ fn main() {
             .unwrap_or(info.uid.len()))],
     )
     .unwrap();
-    println!("version: {}", version);
+    if show_information >= 2 {
+        println!();
+        println!("version: {}", version);
+    }
 
     let unpack_root = match info.unpack_target {
         0 => std::env::temp_dir(),
@@ -136,7 +143,9 @@ fn main() {
     if info.versioning == 0 {
         unpack_dir = unpack_dir.join(version);
     }
-    println!("target directory: {}", unpack_dir.display());
+    if show_information >= 2 {
+        println!("target directory: {}", unpack_dir.display());
+    }
 
     let run_path = &unpack_dir.join(
         std::str::from_utf8(
@@ -148,7 +157,9 @@ fn main() {
         )
         .unwrap(),
     );
-    println!("runpath: {}", run_path.display());
+    if show_information >= 2 {
+        println!("runpath: {}", run_path.display());
+    }
 
     let should_extract = match info.versioning {
         0 => get_version(&unpack_dir) != version,
@@ -161,8 +172,10 @@ fn main() {
     } else {
         0
     };
-    println!("should verify: {}", verification);
-    println!("should extract: {}", should_extract);
+    if show_information >= 2 {
+        println!("should verify: {}", verification);
+        println!("should extract: {}", should_extract);
+    }
 
     if should_extract || verification > 0 {
         let extracted = decompress(
@@ -171,6 +184,7 @@ fn main() {
             verification,
             should_extract,
             version,
+            show_information,
         );
         if extracted {
             set_executable_permissions(&run_path);
@@ -183,8 +197,10 @@ fn main() {
     } else {
         &current_dir
     };
-    println!("current dir: {}", current_dir.display());
-    println!("running...");
+    if show_information >= 2 {
+        println!("current dir: {}", current_dir.display());
+        println!("running...");
+    }
     let args = std::env::args().skip(1).collect::<Vec<_>>();
     let mut command = Command::new(run_path);
     command.args(args);

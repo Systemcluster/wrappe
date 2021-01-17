@@ -11,7 +11,7 @@ pub fn set_executable_permissions(path: &Path) {
         let mut perm: Permissions = meta.permissions();
         perm.set_mode(perm.mode() | 0o110);
         set_permissions(&path, perm).unwrap_or_else(|e| {
-            println!(
+            eprintln!(
                 "failed to set executable permissions for {}: {}",
                 path.display(),
                 e

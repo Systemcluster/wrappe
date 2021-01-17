@@ -44,6 +44,9 @@ pub struct Args {
     /// Verification of existing unpacked data (existence, checksum, none)
     #[clap(short = 'e', long, default_value = "existence")]
     verification:     String,
+    /// Information output details (title, verbose, none)
+    #[clap(short = 'i', long, default_value = "title")]
+    show_information: String,
     /// Prints available runners
     #[clap(short = 'l', long)]
     #[allow(dead_code)]
@@ -84,6 +87,7 @@ fn main() {
     let command = get_command(&args.command, &source);
     let unpack_directory = get_unpack_directory(args.unpack_directory.as_deref(), &source);
     let verification = get_verification(&args.verification);
+    let show_information = get_show_information(&args.show_information);
 
     let file = File::create(&output).unwrap_or_else(|_| {
         println!(
@@ -201,6 +205,7 @@ fn main() {
         show_console: args.show_console.into(),
         current_dir: args.current_dir.into(),
         verification,
+        show_information,
         uid: version.as_bytes().try_into().unwrap(),
         unpack_target,
         versioning,

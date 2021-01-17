@@ -54,6 +54,8 @@ OPTIONS:
             Versioning strategy (sidebyside, replace, none) [default: sidebyside]
     -V, --version <version>
             Version specifier override [default: randomly generated]
+    -i, --show-information <show-information>
+            Information output details (title, verbose, none) [default: title]
 ```
 
 ### Flags and Options
@@ -115,6 +117,16 @@ It defaults to `sidebyside`.
 #### version
 
 This option specifies the version string. It defaults to a randomly generated string of 8 characters.
+
+#### show-information
+
+This options controls the information output of the runner. Accepted values are:
+
+* `title`: The runner will output the `wrappe` version and the unpack directory.
+* `verbose`: The runner will output various additional details like unpack progress and payload size.
+* `none`: The runner will show no additional output.
+
+Error information is always shown when applicable.
 
 ## Compilation
 

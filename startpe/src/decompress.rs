@@ -50,6 +50,7 @@ impl<R: Read, H: Hasher> Read for HashReader<R, H> {
 /// - payload section header
 pub fn decompress(
     mmap: &[u8], unpack_dir: &Path, verification: u8, mut should_extract: bool, version: &str,
+    show_information: u8,
 ) -> bool {
     // read payload header sections
     let payload_header_start = mmap.len() - size_of::<PayloadHeader>();
@@ -61,14 +62,16 @@ pub fn decompress(
     let file_sections = payload_header.file_sections;
     let symlink_sections = payload_header.symlink_sections;
     let payload_size = payload_header.payload_size;
-    println!(
-        "payload: {} directories, {} files, {} symlinks ({} total)",
-        directory_sections,
-        file_sections,
-        symlink_sections,
-        payload_header.len()
-    );
-    println!("payload size: {}", payload_size);
+    if show_information >= 2 {
+        println!(
+            "payload: {} directories, {} files, {} symlinks ({} total)",
+            directory_sections,
+            file_sections,
+            symlink_sections,
+            payload_header.len()
+        );
+        println!("payload size: {}", payload_size);
+    }
 
     let symlink_sections_start =
         payload_header_start - symlink_sections * size_of::<SymlinkSection>();
@@ -79,7 +82,9 @@ pub fn decompress(
 
     let mut section_hasher = XxHash64::with_seed(HASH_SEED);
 
-    println!("reading sections...");
+    if show_information >= 2 {
+        println!("reading sections...");
+    }
     let directories = mmap[directory_sections_start..file_sections_start]
         .chunks(size_of::<DirectorySection>())
         .enumerate()
@@ -176,20 +181,22 @@ pub fn decompress(
 
     // verify files
     if verification > 0 && !should_extract && file_sections > 0 {
-        println!("verifying files...");
+        if show_information >= 2 {
+            println!("verifying files...");
+        }
         should_extract = !files.par_iter().all(|(file, file_name)| {
             let path = unpack_dir
                 .join(&directories[file.parent as usize])
                 .join(&file_name);
             if !path.is_file() {
-                println!("verification failed: not a file: {}", path.display());
+                eprintln!("verification failed: not a file: {}", path.display());
                 return false;
             }
             if verification == 2 {
                 // verify checksums
                 let target = File::open(&path);
                 if target.is_err() {
-                    println!(
+                    eprintln!(
                         "verification failed: couldn't open file: {}",
                         path.display()
                     );
@@ -199,7 +206,7 @@ pub fn decompress(
                 let mut hasher = XxHash64::with_seed(HASH_SEED);
                 let mut reader = HashReader::new(&target, &mut hasher);
                 if copy(&mut reader, &mut sink()).is_err() {
-                    println!(
+                    eprintln!(
                         "verification failed: couldn't read file: {}",
                         path.display()
                     );
@@ -208,7 +215,7 @@ pub fn decompress(
                 let file_hash = hasher.finish();
                 if file_hash != file.file_hash {
                     let expected = file.file_hash;
-                    println!(
+                    eprintln!(
                         "verification failed: file hash ({}) differs from expected file hash ({}): {}",
                         file_hash,
                         expected,
@@ -223,14 +230,16 @@ pub fn decompress(
 
     // verify symlinks
     if verification > 0 && !should_extract && symlink_sections > 0 {
-        println!("verifying symlinks...");
+        if show_information >= 2 {
+            println!("verifying symlinks...");
+        }
         should_extract = !symlinks.par_iter().all(|(symlink, symlink_name)| {
             let path = unpack_dir
                 .join(&directories[symlink.parent as usize])
                 .join(&symlink_name);
             let link = read_link(&path);
             if link.is_err() {
-                println!(
+                eprintln!(
                     "verification failed: not a valid symlink: {}",
                     path.display()
                 );
@@ -238,7 +247,7 @@ pub fn decompress(
             }
             let link = link.unwrap();
             if !link.starts_with(unpack_dir) {
-                println!(
+                eprintln!(
                     "verification failed: symlink points to target outside the target directory: {}",
                     path.display()
                 );
@@ -249,7 +258,7 @@ pub fn decompress(
                 let target = unpack_dir.join(&directories[symlink.target as usize]);
                 if link != target
                 {
-                    println!(
+                    eprintln!(
                         "verification failed: symlink points to wrong target: {} (expected: {})",
                         target.display(),
                         link.display(),
@@ -265,7 +274,7 @@ pub fn decompress(
                     .join(&file_name);
                 if target != link
                 {
-                    println!(
+                    eprintln!(
                         "verification failed: symlink points to wrong target: {} (expected: {})",
                         target.display(),
                         link.display(),
@@ -279,7 +288,9 @@ pub fn decompress(
 
     if should_extract {
         // create directories
-        println!("creating directories...");
+        if show_information >= 2 {
+            println!("creating directories...");
+        }
         directories.iter().for_each(|directory| {
             let path = unpack_dir.join(&directory);
             create_dir_all(&path).unwrap_or_else(|e| {
@@ -288,7 +299,9 @@ pub fn decompress(
         });
 
         // unpack files
-        println!("unpacking...");
+        if show_information >= 2 {
+            println!("unpacking...");
+        }
         let files_start = directory_sections_start as u64 - payload_size;
         files.par_iter().for_each(|(file, file_name)| {
             let path = unpack_dir
@@ -319,7 +332,7 @@ pub fn decompress(
                     let mut perm = meta.permissions();
                     perm.set_readonly(read);
                     set_permissions(&path, perm).unwrap_or_else(|e| {
-                        println!("failed to set permissions for {}: {}", path.display(), e)
+                        eprintln!("failed to set permissions for {}: {}", path.display(), e)
                     });
                 }
             }
@@ -334,7 +347,7 @@ pub fn decompress(
                 let read = file.readonly != 0;
                 perm.set_readonly(read);
                 set_permissions(&path, perm).unwrap_or_else(|e| {
-                    println!("failed to set permissions for {}: {}", path.display(), e)
+                    eprintln!("failed to set permissions for {}: {}", path.display(), e)
                 });
             }
             set_file_times(
@@ -354,11 +367,13 @@ pub fn decompress(
         // create symlinks
         #[cfg(not(any(windows, unix, target_os = "redox")))]
         {
-            println!("skipping symlink creation on unsupported platform");
+            eprintln!("skipping symlink creation on unsupported platform");
         }
         #[cfg(any(windows, unix, target_os = "redox"))]
         {
-            println!("creating symlinks...");
+            if show_information >= 2 {
+                println!("creating symlinks...");
+            }
             symlinks.par_iter().for_each(|(symlink, symlink_name)| {
                 let path = unpack_dir
                     .join(&directories[symlink.parent as usize])
@@ -437,7 +452,7 @@ pub fn decompress(
                         ),
                     )
                     .unwrap_or_else(|e| {
-                        println!("failed to set file times for {}: {}", path.display(), e)
+                        eprintln!("failed to set file times for {}: {}", path.display(), e)
                     });
                 }
             });

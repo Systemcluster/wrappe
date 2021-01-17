@@ -125,9 +125,31 @@ pub fn get_verification(verification: &str) -> u8 {
                 "{}: {}",
                 style("available verification options").blue(),
                 format!(
-                    "off, existence {}, checksum",
+                    "none, existence {}, checksum",
                     style("(default)").bold().black()
                 )
+            );
+            std::process::exit(-1);
+        }
+    }
+}
+
+pub fn get_show_information(show_information: &str) -> u8 {
+    match show_information.to_lowercase().as_str() {
+        "none" => 0,
+        "default" => 1,
+        "title" => 1,
+        "verbose" => 2,
+        _ => {
+            println!(
+                "{}: {}",
+                style("not a valid information details option").red(),
+                style(show_information).red(),
+            );
+            println!(
+                "{}: {}",
+                style("available information details options").blue(),
+                format!("none, title {}, verbose", style("(default)").bold().black())
             );
             std::process::exit(-1);
         }
