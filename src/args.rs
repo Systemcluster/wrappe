@@ -101,6 +101,7 @@ pub fn get_version(version: Option<&str>) -> String {
     } else {
         Alphanumeric
             .sample_iter(thread_rng())
+            .map(char::from)
             .take(8)
             .collect::<Vec<_>>()
     };

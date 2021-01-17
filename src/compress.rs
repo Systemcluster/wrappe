@@ -233,6 +233,7 @@ pub fn compress<
                 let cache_path = temp_dir().join(
                     Alphanumeric
                         .sample_iter(thread_rng())
+                        .map(char::from)
                         .take(16)
                         .collect::<String>(),
                 );
