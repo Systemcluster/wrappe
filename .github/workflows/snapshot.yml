@@ -53,7 +53,7 @@ jobs:
 
       - name: Build Windows release
         env:
-          RUSTFLAGS: "-Ctarget-feature=+crt-static,+mmx,+sse,+sse2,+sse3,+ssse3,+sse4.1,+sse4.2,+fma,+popcnt,+pclmul,+cmov,+cx8,+cx16,+avx,+aes"
+          RUSTFLAGS: "-Ctarget-feature=+crt-static,+mmx,+sse,+sse2,+sse3,+ssse3,+cmov,+cx8,+cx16"
           WRAPPE_TARGETS: "x86_64-pc-windows-gnu;x86_64-unknown-linux-musl"
         uses: actions-rs/cargo@v1
         with:
@@ -62,7 +62,7 @@ jobs:
 
       - name: Build Linux release
         env:
-          RUSTFLAGS: "-Ctarget-feature=+crt-static,+mmx,+sse,+sse2,+sse3,+ssse3,+sse4.1,+sse4.2,+fma,+popcnt,+pclmul,+cmov,+cx8,+cx16,+avx,+aes"
+          RUSTFLAGS: "-Ctarget-feature=+crt-static,+mmx,+sse,+sse2,+sse3,+ssse3,+cmov,+cx8,+cx16"
           WRAPPE_TARGETS: "x86_64-pc-windows-gnu;x86_64-unknown-linux-musl"
         uses: actions-rs/cargo@v1
         with:
@@ -130,7 +130,7 @@ jobs:
 
       - name: Build macOS release
         env:
-          RUSTFLAGS: "-Ctarget-feature=+crt-static,+mmx,+sse,+sse2,+sse3,+ssse3,+sse4.1,+sse4.2,+fma,+popcnt,+pclmul,+cmov,+cx8,+cx16,+avx,+aes"
+          RUSTFLAGS: "-Ctarget-feature=+crt-static,+mmx,+sse,+sse2,+sse3,+ssse3,+cmov,+cx8,+cx16"
           RUSTC_WRAPPER: sccache
         uses: actions-rs/cargo@v1
         with:
