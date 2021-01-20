@@ -16,7 +16,9 @@ fn get_runner_targets() -> Vec<String> {
     let mut active_targets = Vec::from([native_target]);
     let requested_targets = var(TARGETS_ENV);
     if let Ok(requested_targets) = requested_targets {
-        let requested_targets = requested_targets.split(';').collect::<Vec<&str>>();
+        let mut requested_targets = requested_targets.split(';').collect::<Vec<&str>>();
+        requested_targets.sort_unstable();
+        requested_targets.dedup();
         let available_targets = Command::new(rustc)
             .arg("--print")
             .arg("target-list")
@@ -48,8 +50,6 @@ fn get_runner_targets() -> Vec<String> {
             }
         }
     }
-    active_targets.sort();
-    active_targets.dedup();
     active_targets
 }
 
