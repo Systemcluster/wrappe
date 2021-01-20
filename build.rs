@@ -7,6 +7,7 @@ use which::which;
 const TARGETS_ENV: &str = "WRAPPE_TARGETS";
 const FILES_ENV: &str = "WRAPPE_FILES";
 const NO_CROSS_ENV: &str = "WRAPPE_NO_CROSS";
+const OSXCROSS_WORKAROUND_ENV: &str = "WRAPPE_OSXCROSS_WORKAROUND";
 const STARTER_NAME: &str = "startpe";
 
 
@@ -58,6 +59,8 @@ fn compile_runner(target: &str, out_dir: &str) -> bool {
     let native_target = var("TARGET").unwrap();
     let cargo = PathBuf::from(var("CARGO").unwrap()).canonicalize().unwrap();
     let no_cross = var(NO_CROSS_ENV) == Ok("true".into()) || var(NO_CROSS_ENV) == Ok("1".into());
+    let osxcross_workaround = var(OSXCROSS_WORKAROUND_ENV) == Ok("true".into())
+        || var(OSXCROSS_WORKAROUND_ENV) == Ok("1".into());
     let mut command = if target == native_target || no_cross {
         Command::new(cargo)
     } else {
@@ -75,6 +78,17 @@ fn compile_runner(target: &str, out_dir: &str) -> bool {
         }
     } else {
         command.env("RUSTFLAGS", "-Ctarget-feature=+crt-static");
+    }
+    if osxcross_workaround {
+        if target.contains("apple") {
+            command.env("CC", "o64-clang");
+            command.env("CXX", "o64-clang++");
+            command.env("AR", "x86_64-apple-darwin14-ar");
+        } else {
+            command.env_remove("CC");
+            command.env_remove("CXX");
+            command.env_remove("AR");
+        }
     }
     command
         .current_dir(STARTER_NAME)
@@ -104,8 +118,14 @@ fn compile_runner(target: &str, out_dir: &str) -> bool {
                     ""
                 }
             );
+            #[cfg(not(target_os = "macos"))]
             let _ = Command::new(strip)
-                .args(&["-S", &path])
+                .args(&["--strip-all", &path])
+                .output()
+                .map_err(|error| eprintln!("failed to strip symbols: {}", error));
+            #[cfg(target_os = "macos")]
+            let _ = Command::new(strip)
+                .args(&["-x", "-S", &path])
                 .output()
                 .map_err(|error| eprintln!("failed to strip symbols: {}", error));
         };

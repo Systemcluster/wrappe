@@ -16,12 +16,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v2
+      - name: Setup Toolchain cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/osxcross
+          key: toolchain-osxcross
 
       - name: Set up environment
         run: |
+          cd $HOME
           sudo apt-get install mingw-w64 musl-tools
+          sudo apt-get install bash clang cmake git patch libssl-dev lzma-dev libxml2-dev llvm-dev
+          [ -d "osxcross" ] || git clone https://github.com/tpoechtrager/osxcross
+          cd osxcross
+          [ -f "tarballs/MacOSX10.10.sdk.tar.xz" ] || wget -nc https://s3.dockerproject.org/darwin/v2/MacOSX10.10.sdk.tar.xz
+          [ -f "MacOSX10.10.sdk.tar.xz" ] && mv MacOSX10.10.sdk.tar.xz tarballs/
+          [ -f "target/bin/x86_64-apple-darwin14-clang" ] || UNATTENDED=yes OSX_VERSION_MIN=10.10 ./build.sh
+          cd $HOME
+          chmod -R 777 osxcross
+          chmod +x osxcross/target/bin/*
+          echo "$(pwd)/osxcross/target/bin" >> $GITHUB_PATH
+          mkdir -p .cargo
+          touch .cargo/config
+          echo '[target.x86_64-apple-darwin]' >> .cargo/config
+          echo 'linker = "x86_64-apple-darwin14-clang"' >> .cargo/config
+          echo 'ar = "x86_64-apple-darwin14-ar"' >> .cargo/config
 
       - name: Install Linux Rust toolchain
         uses: actions-rs/toolchain@v1
@@ -38,11 +58,21 @@ jobs:
           target: x86_64-pc-windows-gnu
           profile: minimal
 
+      - name: Install macOS Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: x86_64-apple-darwin
+          profile: minimal
+
+      - name: Checkout source
+        uses: actions/checkout@v2
+
       - name: Update dependencies
         run: |
           cargo update
 
-      - name: Setup cache
+      - name: Setup Cargo cache
         uses: actions/cache@v2
         with:
           path: |
@@ -54,7 +84,8 @@ jobs:
       - name: Build Windows release
         env:
           RUSTFLAGS: "-Ctarget-feature=+crt-static,+mmx,+sse,+sse2,+sse3,+ssse3,+cmov,+cx8,+cx16"
-          WRAPPE_TARGETS: "x86_64-pc-windows-gnu;x86_64-unknown-linux-musl"
+          WRAPPE_TARGETS: "x86_64-pc-windows-gnu;x86_64-unknown-linux-musl;x86_64-apple-darwin"
+          WRAPPE_OSXCROSS_WORKAROUND: "1"
         uses: actions-rs/cargo@v1
         with:
           command: build
@@ -63,21 +94,37 @@ jobs:
       - name: Build Linux release
         env:
           RUSTFLAGS: "-Ctarget-feature=+crt-static,+mmx,+sse,+sse2,+sse3,+ssse3,+cmov,+cx8,+cx16"
-          WRAPPE_TARGETS: "x86_64-pc-windows-gnu;x86_64-unknown-linux-musl"
+          WRAPPE_TARGETS: "x86_64-pc-windows-gnu;x86_64-unknown-linux-musl;x86_64-apple-darwin"
+          WRAPPE_OSXCROSS_WORKAROUND: "1"
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --release --target x86_64-unknown-linux-musl
 
+      - name: Build macOS release
+        env:
+          RUSTFLAGS: "-Ctarget-feature=+crt-static,+mmx,+sse,+sse2,+sse3,+ssse3,+cmov,+cx8,+cx16"
+          WRAPPE_TARGETS: "x86_64-pc-windows-gnu;x86_64-unknown-linux-musl;x86_64-apple-darwin"
+          WRAPPE_OSXCROSS_WORKAROUND: "1"
+          CC: "o64-clang"
+          CXX: "o64-clang++"
+          AR: "x86_64-apple-darwin14-ar"
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --target x86_64-apple-darwin
+
       - name: Collect executables
         run: |
           mv target/x86_64-pc-windows-gnu/release/wrappe.exe wrappe.exe
           mv target/x86_64-unknown-linux-musl/release/wrappe wrappe-linux
+          mv target/x86_64-apple-darwin/release/wrappe wrappe-macos
 
       - name: Strip symbols
         run: |
-          strip -S wrappe.exe
-          strip -S wrappe-linux
+          strip -s wrappe.exe
+          strip -s wrappe-linux
+          x86_64-apple-darwin14-strip -x -S wrappe-macos
 
       - name: Upload release
         uses: marvinpinto/action-automatic-releases@latest
@@ -89,84 +136,4 @@ jobs:
           files: |
             wrappe.exe
             wrappe-linux
-
-  macos:
-
-    name: Snapshot Build (macOS)
-    runs-on: macos-latest
-    needs: snapshot
-
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v2
-
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: x86_64-apple-darwin
-          profile: minimal
-          default: true
-
-      - name: Update dependencies
-        run: |
-          cargo update
-
-      - name: Setup cache
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: macos-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Install sccache
-        uses: actions-rs/install@v0.1
-        with:
-          crate: sccache
-          version: latest
-          use-tool-cache: true
-
-      - name: Build macOS release
-        env:
-          RUSTFLAGS: "-Ctarget-feature=+crt-static,+mmx,+sse,+sse2,+sse3,+ssse3,+cmov,+cx8,+cx16"
-          RUSTC_WRAPPER: sccache
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --target x86_64-apple-darwin
-
-      - name: Collect executables
-        run: |
-          mv target/x86_64-apple-darwin/release/wrappe wrappe-macos
-
-      - name: Strip symbols
-        run: |
-          strip -S wrappe-macos
-
-      - name: Get release
-        uses: octokit/request-action@v2.x
-        id: get_snapshot_release
-        with:
-            route: GET /repos/Systemcluster/wrappe/releases/tags/snapshot
-        env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Get upload url
-        id: get_upload_url
-        run: |
-          url=$(echo "$response" | jq -r '.upload_url')
-          echo "::set-output name=url::$url"
-        env:
-          response:  ${{ steps.get_snapshot_release.outputs.data }}
-
-      - name: Upload release
-        uses: actions/upload-release-asset@v1.0.2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.get_upload_url.outputs.url }}
-          asset_path: wrappe-macos
-          asset_name: wrappe-macos
-          asset_content_type: application/octet-stream
+            wrappe-macos
