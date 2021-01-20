@@ -20,7 +20,7 @@ wrappe --compression 16 dist dist/diogenes.exe packed.exe
 
 ### Details
 
-Runing wrappe requires specifying the path to the input, the executable to run, and the name of the output executable.
+Running wrappe requires specifying the path to the input, the executable to run, and the name of the output executable.
 
 `input` specifies the path to a directory or a file. `command` has to specify a file inside the input directory, or in case of an input file, the input file itself. `output` specifies a filename or path to a file. It will be overwritten if it already exists.
 
@@ -120,13 +120,19 @@ This option specifies the version string. It defaults to a randomly generated st
 
 #### show-information
 
-This options controls the information output of the runner. Accepted values are:
+This option controls the information output of the runner. Accepted values are:
 
 * `title`: The runner will output the `wrappe` version and the unpack directory.
-* `verbose`: The runner will output various additional details like unpack progress and payload size.
+* `verbose`: The runner will output various additional details like unpack status, configuration and payload size.
 * `none`: The runner will show no additional output.
 
-Error information is always shown when applicable.
+It defaults to `title`. Error information is always shown when applicable.
+
+## Download
+
+A snapshot build of the latest version can be found on the [release page](https://github.com/Systemcluster/wrappe/releases).
+
+Snapshot builds contain runners for Windows (`x86_64-pc-windows-gnu`), macOS (`x86_64-apple-darwin`) and Linux (`x86_64-unknown-linux-musl`).
 
 ## Compilation
 
@@ -136,7 +142,7 @@ Compiling wrappe will also compile a runner for your current platform by default
 cargo build --release
 ```
 
-To compile and include additional runners for other platforms, speficy the desired [target triplets](https://doc.rust-lang.org/stable/rustc/targets/) in the `WRAPPE_TARGETS` environment variable.
+To compile and include additional runners for other platforms, specify the desired [target triplets](https://doc.rust-lang.org/stable/rustc/targets/) in the `WRAPPE_TARGETS` environment variable.
 
 ```shell
 WRAPPE_TARGETS=x86_64-unknown-linux-gnu;x86_64-pc-windows-msvc cargo build --release
