@@ -216,5 +216,26 @@ fn main() {
     writer.write_all(info.as_bytes()).unwrap();
 
     writer.flush().unwrap();
+    let _ = writer;
+
+    #[cfg(any(unix, target_os = "redox"))]
+    {
+        use ::std::{
+            fs::{metadata, set_permissions},
+            os::unix::prelude::*,
+        };
+        let mode = metadata(&output)
+            .map(|metadata| metadata.permissions().mode())
+            .unwrap_or(0o755);
+        set_permissions(&output, PermissionsExt::from_mode(mode | 0o111)).unwrap_or_else(|e| {
+            eprintln!(
+                "      {} failed to set permissions for {}: {}",
+                Emoji("⚠ ", ""),
+                output.display(),
+                e
+            )
+        });
+    }
+
     println!("      {}{}", Emoji("✨ ", ""), style("done!").green());
 }
