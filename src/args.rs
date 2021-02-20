@@ -31,7 +31,7 @@ pub fn get_runner(name: &str) -> &'static [u8] {
     let runner_name = if name == "native" || name == "default" {
         StarterMap::keys()[0]
     } else {
-        &name
+        name
     };
     StarterMap::get_match(runner_name).unwrap_or_else(|| {
         println!(
@@ -57,9 +57,9 @@ pub fn get_unpack_target(directory: &str) -> u8 {
                 style(directory).red(),
             );
             println!(
-                "{}: {}",
+                "{}: temp {}, local, cwd",
                 style("available target directories").blue(),
-                format!("temp {}, local, cwd", style("(default)").bold().black())
+                style("(default)").bold().black()
             );
             std::process::exit(-1);
         }
@@ -79,9 +79,9 @@ pub fn get_versioning(versioning: &str) -> u8 {
                 style(versioning).red(),
             );
             println!(
-                "{}: {}",
+                "{}: sidebyside {}, replace",
                 style("available versioning strategies").blue(),
-                format!("sidebyside {}, replace", style("(default)").bold().black())
+                style("(default)").bold().black()
             );
             std::process::exit(-1);
         }
@@ -122,12 +122,9 @@ pub fn get_verification(verification: &str) -> u8 {
                 style(verification).red(),
             );
             println!(
-                "{}: {}",
+                "{}: none, existence {}, checksum",
                 style("available verification options").blue(),
-                format!(
-                    "none, existence {}, checksum",
-                    style("(default)").bold().black()
-                )
+                style("(default)").bold().black()
             );
             std::process::exit(-1);
         }
@@ -147,9 +144,9 @@ pub fn get_show_information(show_information: &str) -> u8 {
                 style(show_information).red(),
             );
             println!(
-                "{}: {}",
+                "{}: none, title {}, verbose",
                 style("available information details options").blue(),
-                format!("none, title {}, verbose", style("(default)").bold().black())
+                style("(default)").bold().black()
             );
             std::process::exit(-1);
         }

@@ -458,7 +458,7 @@ pub fn decompress(
             });
         }
 
-        set_version(&unpack_dir, version);
+        set_version(unpack_dir, version);
     }
 
     should_extract

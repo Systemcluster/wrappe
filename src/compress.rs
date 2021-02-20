@@ -63,7 +63,7 @@ pub fn compress<
     let source: &Path = source.as_ref();
 
     let system = System::new_with_specifics(sysinfo::RefreshKind::new().with_memory());
-    let memory = system.get_total_memory();
+    let memory = system.total_memory();
     let in_memory_limit = memory / num_cpus::get() as u64 * 1000;
 
     let entries = WalkDir::new(&source)
@@ -198,7 +198,6 @@ pub fn compress<
 
             let mut start = 0;
             let mut end = 0;
-            let file_hash;
             let mut compressed_hash = 0;
             let mut reader = HashReader::new(file, XxHash64::with_seed(HASH_SEED));
 
@@ -271,7 +270,7 @@ pub fn compress<
 
                 let _ = remove_file(cache_path);
             }
-            file_hash = reader.finish();
+            let file_hash = reader.finish();
 
             let mut name_array = [0; NAME_SIZE];
             name_array[0..name.len()].copy_from_slice(name.as_bytes());

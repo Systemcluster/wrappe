@@ -10,7 +10,7 @@ use std::{
     time::SystemTime,
 };
 
-use memmap::MmapOptions;
+use memmap2::MmapOptions;
 use zerocopy::LayoutVerified;
 
 #[cfg(windows)]
@@ -187,7 +187,7 @@ fn main() {
             show_information,
         );
         if extracted {
-            set_executable_permissions(&run_path);
+            set_executable_permissions(run_path);
         }
     }
 

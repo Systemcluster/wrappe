@@ -5,7 +5,7 @@ use std::{
     path::PathBuf,
 };
 
-use clap::Clap;
+use clap::Parser;
 use console::{style, Emoji};
 use indicatif::{ProgressBar, ProgressStyle};
 use jwalk::WalkDir;
@@ -20,7 +20,7 @@ use compress::compress;
 mod args;
 use args::*;
 
-#[derive(Clap)]
+#[derive(Parser)]
 #[clap(about, version)]
 pub struct Args {
     /// Zstd compression level (0-21)
@@ -173,7 +173,7 @@ fn main() {
             ));
         },
         |message| {
-            bar_progress.set_message(&format!("{}", style(message).blue()));
+            bar_progress.set_message(format!("{}", style(message).blue()));
         },
     ) as u64;
     bar_progress.finish_and_clear();
@@ -190,7 +190,7 @@ fn main() {
                 .bold()
                 .red()
         } else {
-            style(format!(""))
+            style(String::new())
         }
     );
 

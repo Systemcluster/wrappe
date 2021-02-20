@@ -4,7 +4,7 @@ authors = ["Christian Sdunek <me@systemcluster.me>"]
 build = "build.rs"
 categories = ["compression", "filesystem", "command-line-utilities"]
 description = "Packer for Executables"
-edition = "2018"
+edition = "2021"
 include = [
   "Cargo.toml",
   "src/**/*",
@@ -42,22 +42,22 @@ panic = "abort"
 
 [dependencies]
 
-staticfilemap = {version = "0.1.5", default-features = false, features = ["zstd"]}
+staticfilemap = {version = "0.3.0", default-features = false, features = ["zstd"]}
 
-clap = {package = "clap", version = "3.0.0-beta.2"}
-color-backtrace = "0.5.0"
-console = "0.14.0"
-indicatif = "0.15.0"
+clap = {version = "3.0.14", features = ["std", "color", "suggestions", "derive", "unicode", "wrap_help"]}
+color-backtrace = "0.5.1"
+console = "0.15.0"
+indicatif = "0.17.0-rc.2"
 jwalk = "0.6.0"
-num_cpus = "1.13.0"
+num_cpus = "1.13.1"
 path-slash = "0.1.4"
-rand = "0.8.2"
-rayon = "1.5.0"
-sysinfo = "0.15.9"
-twox-hash = {version = "1.6.0", default-features = false}
-zerocopy = "0.3.0"
-zstd = "0.6.0"
+rand = "0.8.4"
+rayon = "1.5.1"
+sysinfo = "0.23.1"
+twox-hash = {version = "1.6.2", default-features = false}
+zerocopy = "0.6.1"
+zstd = "0.10.0"
 
 [build-dependencies]
 jwalk = "0.6.0"
-which = "4.0.2"
+which = "4.2.4"

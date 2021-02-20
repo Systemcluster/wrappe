@@ -173,7 +173,7 @@ fn main() {
     let out_dir = var("OUT_DIR").unwrap();
     let active_targets = get_runner_targets();
     for target in &active_targets {
-        let status = compile_runner(&target, &out_dir);
+        let status = compile_runner(target, &out_dir);
         if !status {
             eprintln!("couldn't build for target {}, build failed", &target);
             std::process::exit(1);
