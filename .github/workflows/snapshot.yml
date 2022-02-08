@@ -7,6 +7,9 @@ on:
     paths-ignore:
       - ".github/**"
       - "**/*.md"
+  workflow_dispatch:
+    branches:
+      - "master"
 
 jobs:
 
@@ -35,7 +38,7 @@ jobs:
           [ -f "target/bin/x86_64-apple-darwin14-clang" ] || UNATTENDED=yes OSX_VERSION_MIN=10.10 ./build.sh
           cd $HOME
           chmod -R 777 osxcross
-          chmod +x osxcross/target/bin/*
+          chmod -R +x osxcross/target/bin
           echo "$(pwd)/osxcross/target/bin" >> $GITHUB_PATH
           mkdir -p .cargo
           touch .cargo/config
@@ -119,6 +122,8 @@ jobs:
           mv target/x86_64-pc-windows-gnu/release/wrappe.exe wrappe.exe
           mv target/x86_64-unknown-linux-musl/release/wrappe wrappe-linux
           mv target/x86_64-apple-darwin/release/wrappe wrappe-macos
+          chmod +x wrappe-linux
+          chmod +x wrappe-macos
 
       - name: Strip symbols
         run: |
