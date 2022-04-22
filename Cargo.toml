@@ -39,6 +39,7 @@ incremental = false
 lto = "fat"
 opt-level = 's'
 panic = "abort"
+strip = "symbols"
 
 [dependencies]
 

@@ -132,7 +132,7 @@ It defaults to `title`. Error information is always shown when applicable.
 
 A snapshot build of the latest version can be found on the [release page](https://github.com/Systemcluster/wrappe/releases).
 
-Snapshot builds contain runners for Windows (`x86_64-pc-windows-gnu`), macOS (`x86_64-apple-darwin`) and Linux (`x86_64-unknown-linux-musl`).
+Snapshot builds contain runners for Windows (`x86_64-pc-windows-gnu`), macOS (`x86_64-apple-darwin` and `aarch64-apple-darwin`) and Linux (`x86_64-unknown-linux-musl`).
 
 ## Compilation
 

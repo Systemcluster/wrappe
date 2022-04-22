@@ -27,15 +27,19 @@ jobs:
           key: toolchain-osxcross
 
       - name: Set up environment
+        env:
+          OSX_VERSION_MIN: 11.3
+          MACOSX_DEPLOYMENT_TARGET: 11.3
         run: |
           cd $HOME
           sudo apt-get install mingw-w64 musl-tools
           sudo apt-get install bash clang cmake git patch libssl-dev lzma-dev libxml2-dev llvm-dev
           [ -d "osxcross" ] || git clone https://github.com/tpoechtrager/osxcross
           cd osxcross
-          [ -f "tarballs/MacOSX10.10.sdk.tar.xz" ] || wget -nc https://s3.dockerproject.org/darwin/v2/MacOSX10.10.sdk.tar.xz
-          [ -f "MacOSX10.10.sdk.tar.xz" ] && mv MacOSX10.10.sdk.tar.xz tarballs/
-          [ -f "target/bin/x86_64-apple-darwin14-clang" ] || UNATTENDED=yes OSX_VERSION_MIN=10.10 ./build.sh
+          [ -f "tarballs/MacOSX11.3.sdk.tar.xz" ] || wget -nc https://github.com/phracker/MacOSX-SDKs/releases/download/11.3/MacOSX11.3.sdk.tar.xz
+          [ -f "MacOSX11.3.sdk.tar.xz" ] && mv MacOSX11.3.sdk.tar.xz tarballs/
+          [ -f "target/bin/x86_64-apple-darwin20.4-clang" ] || UNATTENDED=yes ./build.sh
+          ls target/bin
           cd $HOME
           chmod -R 777 osxcross
           chmod -R +x osxcross/target/bin
@@ -43,10 +47,13 @@ jobs:
           mkdir -p .cargo
           touch .cargo/config
           echo '[target.x86_64-apple-darwin]' >> .cargo/config
-          echo 'linker = "x86_64-apple-darwin14-clang"' >> .cargo/config
-          echo 'ar = "x86_64-apple-darwin14-ar"' >> .cargo/config
+          echo 'linker = "x86_64-apple-darwin20.4-clang"' >> .cargo/config
+          echo 'ar = "x86_64-apple-darwin20.4-ar"' >> .cargo/config
+          echo '[target.aarch64-apple-darwin]' >> .cargo/config
+          echo 'linker = "arm64-apple-darwin20.4-clang"' >> .cargo/config
+          echo 'ar = "arm64-apple-darwin20.4-ar"' >> .cargo/config
 
-      - name: Install Linux Rust toolchain
+      - name: Install Linux x64 Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
@@ -54,18 +61,25 @@ jobs:
           profile: minimal
           default: true
 
-      - name: Install Windows Rust toolchain
+      - name: Install Windows x64 Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           target: x86_64-pc-windows-gnu
           profile: minimal
 
-      - name: Install macOS Rust toolchain
+      - name: Install macOS x64 Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           target: x86_64-apple-darwin
+          profile: minimal
+
+      - name: Install macOS ARM Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: aarch64-apple-darwin
           profile: minimal
 
       - name: Checkout source
@@ -84,34 +98,51 @@ jobs:
             target
           key: cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Build Windows release
+      - name: Build macOS ARM release
         env:
-          RUSTFLAGS: "-Ctarget-feature=+crt-static,+mmx,+sse,+sse2,+sse3,+ssse3,+cmov,+cx8,+cx16"
-          WRAPPE_TARGETS: "x86_64-pc-windows-gnu;x86_64-unknown-linux-musl;x86_64-apple-darwin"
+          RUSTFLAGS: "-Ctarget-feature=+crt-static"
+          WRAPPE_TARGETS: "x86_64-pc-windows-gnu;x86_64-unknown-linux-musl;x86_64-apple-darwin;aarch64-apple-darwin"
           WRAPPE_OSXCROSS_WORKAROUND: "1"
+          MACOSX_DEPLOYMENT_TARGET: 11.3
+          CC: "oa64-clang"
+          CXX: "oa64-clang++"
+          AR: "arm64-apple-darwin20.4-ar"
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --target aarch64-apple-darwin
+
+      - name: Build Windows x64 release
+        env:
+          RUSTFLAGS: "-Ctarget-feature=+crt-static"
+          WRAPPE_TARGETS: "x86_64-pc-windows-gnu;x86_64-unknown-linux-musl;x86_64-apple-darwin;aarch64-apple-darwin"
+          WRAPPE_OSXCROSS_WORKAROUND: "1"
+          MACOSX_DEPLOYMENT_TARGET: 11.3
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --release --target x86_64-pc-windows-gnu
 
-      - name: Build Linux release
+      - name: Build Linux x64 release
         env:
-          RUSTFLAGS: "-Ctarget-feature=+crt-static,+mmx,+sse,+sse2,+sse3,+ssse3,+cmov,+cx8,+cx16"
-          WRAPPE_TARGETS: "x86_64-pc-windows-gnu;x86_64-unknown-linux-musl;x86_64-apple-darwin"
+          RUSTFLAGS: "-Ctarget-feature=+crt-static"
+          WRAPPE_TARGETS: "x86_64-pc-windows-gnu;x86_64-unknown-linux-musl;x86_64-apple-darwin;aarch64-apple-darwin"
           WRAPPE_OSXCROSS_WORKAROUND: "1"
+          MACOSX_DEPLOYMENT_TARGET: 11.3
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --release --target x86_64-unknown-linux-musl
 
-      - name: Build macOS release
+      - name: Build macOS x64 release
         env:
-          RUSTFLAGS: "-Ctarget-feature=+crt-static,+mmx,+sse,+sse2,+sse3,+ssse3,+cmov,+cx8,+cx16"
-          WRAPPE_TARGETS: "x86_64-pc-windows-gnu;x86_64-unknown-linux-musl;x86_64-apple-darwin"
+          RUSTFLAGS: "-Ctarget-feature=+crt-static"
+          WRAPPE_TARGETS: "x86_64-pc-windows-gnu;x86_64-unknown-linux-musl;x86_64-apple-darwin;aarch64-apple-darwin"
           WRAPPE_OSXCROSS_WORKAROUND: "1"
+          MACOSX_DEPLOYMENT_TARGET: 11.3
           CC: "o64-clang"
           CXX: "o64-clang++"
-          AR: "x86_64-apple-darwin14-ar"
+          AR: "x86_64-apple-darwin20.4-ar"
         uses: actions-rs/cargo@v1
         with:
           command: build
@@ -122,14 +153,10 @@ jobs:
           mv target/x86_64-pc-windows-gnu/release/wrappe.exe wrappe.exe
           mv target/x86_64-unknown-linux-musl/release/wrappe wrappe-linux
           mv target/x86_64-apple-darwin/release/wrappe wrappe-macos
+          mv target/aarch64-apple-darwin/release/wrappe wrappe-macos-arm
           chmod +x wrappe-linux
           chmod +x wrappe-macos
-
-      - name: Strip symbols
-        run: |
-          strip -s wrappe.exe
-          strip -s wrappe-linux
-          x86_64-apple-darwin14-strip -x -S wrappe-macos
+          chmod +x wrappe-macos-arm
 
       - name: Upload release
         uses: marvinpinto/action-automatic-releases@latest
@@ -142,3 +169,4 @@ jobs:
             wrappe.exe
             wrappe-linux
             wrappe-macos
+            wrappe-macos-arm

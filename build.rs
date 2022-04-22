@@ -69,27 +69,29 @@ fn compile_runner(target: &str, out_dir: &str) -> bool {
     if let Some(hash) = get_git_hash() {
         command.env("GIT_HASH", hash);
     }
-    if let Ok(rustflags) = var("RUSTFLAGS") {
-        if !rustflags.contains("-Ctarget-feature") && !rustflags.contains("-C target-feature") {
-            command.env(
-                "RUSTFLAGS",
-                [&var("RUSTFLAGS").unwrap(), "-Ctarget-feature=+crt-static"].join(" "),
-            );
-        }
-    } else {
-        command.env("RUSTFLAGS", "-Ctarget-feature=+crt-static");
+    let mut rustflags = var("RUSTFLAGS").unwrap_or_default();
+    if !rustflags.contains("-Ctarget-feature") && !rustflags.contains("-C target-feature") {
+        rustflags = [rustflags, "-Ctarget-feature=+crt-static".to_string()].join(" ");
     }
     if osxcross_workaround {
+        command.env("MACOSX_DEPLOYMENT_TARGET", "11.3");
         if target.contains("apple") {
-            command.env("CC", "o64-clang");
-            command.env("CXX", "o64-clang++");
-            command.env("AR", "x86_64-apple-darwin14-ar");
+            if target.contains("aarch") {
+                command.env("CC", "oa64-clang");
+                command.env("CXX", "oa64-clang++");
+                command.env("AR", "arm64-apple-darwin20.4-ar");
+            } else {
+                command.env("CC", "o64-clang");
+                command.env("CXX", "o64-clang++");
+                command.env("AR", "x86_64-apple-darwin20.4-ar");
+            }
         } else {
             command.env_remove("CC");
             command.env_remove("CXX");
             command.env_remove("AR");
         }
     }
+    command.env("RUSTFLAGS", rustflags);
     command
         .current_dir(STARTER_NAME)
         .arg("build")
@@ -104,35 +106,7 @@ fn compile_runner(target: &str, out_dir: &str) -> bool {
         .status()
         .unwrap_or_else(|e| panic!("couldn't compile runner for target {}: {}", &target, e));
 
-    if status.success() {
-        if let Ok(strip) = which("strip") {
-            let path = format!(
-                "{}/{}/{}/{}{}",
-                out_dir,
-                target,
-                profile,
-                STARTER_NAME,
-                if target.contains("windows") {
-                    ".exe"
-                } else {
-                    ""
-                }
-            );
-            #[cfg(not(target_os = "macos"))]
-            let _ = Command::new(strip)
-                .args(&["--strip-all", &path])
-                .output()
-                .map_err(|error| eprintln!("failed to strip symbols: {}", error));
-            #[cfg(target_os = "macos")]
-            let _ = Command::new(strip)
-                .args(&["-x", "-S", &path])
-                .output()
-                .map_err(|error| eprintln!("failed to strip symbols: {}", error));
-        };
-        true
-    } else {
-        false
-    }
+    status.success()
 }
 
 fn get_git_hash() -> Option<String> {
@@ -169,6 +143,11 @@ fn main() {
         .filter_map(|e| e.ok())
     {
         println!("cargo:rerun-if-changed={}", entry.path().display());
+    }
+    let osxcross_workaround = var(OSXCROSS_WORKAROUND_ENV) == Ok("true".into())
+        || var(OSXCROSS_WORKAROUND_ENV) == Ok("1".into());
+    if osxcross_workaround {
+        println!("cargo:rustc-env=MACOSX_DEPLOYMENT_TARGET=11.3");
     }
     let out_dir = var("OUT_DIR").unwrap();
     let active_targets = get_runner_targets();
