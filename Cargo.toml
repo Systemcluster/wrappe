@@ -44,20 +44,20 @@ panic = "abort"
 
 staticfilemap = {version = "0.3.0", default-features = false, features = ["zstd"]}
 
-clap = {version = "3.0.14", features = ["std", "color", "suggestions", "derive", "unicode", "wrap_help"]}
+clap = {version = "3.1.12", features = ["std", "color", "suggestions", "derive", "unicode", "wrap_help"]}
 color-backtrace = "0.5.1"
 console = "0.15.0"
-indicatif = "0.17.0-rc.2"
+indicatif = "0.17.0-rc.10"
 jwalk = "0.6.0"
 num_cpus = "1.13.1"
 path-slash = "0.1.4"
-rand = "0.8.4"
-rayon = "1.5.1"
-sysinfo = "0.23.1"
+rand = "0.8.5"
+rayon = "1.5.2"
+sysinfo = "0.23.10"
 twox-hash = {version = "1.6.2", default-features = false}
 zerocopy = "0.6.1"
 zstd = "0.10.0"
 
 [build-dependencies]
 jwalk = "0.6.0"
-which = "4.2.4"
+which = "4.2.5"

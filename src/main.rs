@@ -3,6 +3,7 @@ use std::{
     fs::File,
     io::{BufWriter, Cursor, Write},
     path::PathBuf,
+    time::Duration,
 };
 
 use clap::Parser;
@@ -152,11 +153,11 @@ fn main() {
     let bar_progress =
         ProgressBar::new(0).with_style(
             ProgressStyle::default_bar()
-                .template("{spinner:.green} {elapsed_precise} [{wide_bar:.green}] {pos}/{len}\n{spinner:.green} {wide_msg}"),
+                .template("{spinner:.green} {elapsed_precise} [{wide_bar:.green}] {pos}/{len}\n{spinner:.green} {wide_msg}").unwrap(),
         );
     bar_progress.set_length(count);
     bar_progress.set_position(0);
-    bar_progress.enable_steady_tick(12);
+    bar_progress.enable_steady_tick(Duration::from_millis(12));
     let compressed = compress(
         &source,
         &mut writer,
