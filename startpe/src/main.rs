@@ -1,5 +1,3 @@
-#![windows_subsystem = "windows"]
-
 use std::{
     env::current_exe,
     fs::{read_link, File},
@@ -14,13 +12,7 @@ use memmap2::MmapOptions;
 use zerocopy::LayoutVerified;
 
 #[cfg(windows)]
-use winapi::{
-    shared::windef::HWND,
-    um::{
-        consoleapi::AllocConsole,
-        wincon::{AttachConsole, FreeConsole, GetConsoleWindow, ATTACH_PARENT_PROCESS},
-    },
-};
+use winapi::um::wincon::FreeConsole;
 
 mod types;
 use types::*;
@@ -72,19 +64,6 @@ fn main() {
     let info = LayoutVerified::<_, StarterInfo>::new(&mmap[info_start..end])
         .expect("couldn't read starter info")
         .into_ref();
-
-    #[cfg(windows)]
-    let mut console = std::ptr::null::<HWND>() as HWND;
-    #[cfg(windows)]
-    unsafe {
-        if AttachConsole(ATTACH_PARENT_PROCESS) == 0 {
-            if info.show_console != 0 {
-                AllocConsole();
-            }
-        } else {
-            console = GetConsoleWindow();
-        }
-    }
 
     let show_information = info.show_information;
     if show_information >= 1 {
@@ -201,20 +180,24 @@ fn main() {
         println!("current dir: {}", current_dir.display());
         println!("running...");
     }
+
     let args = std::env::args().skip(1).collect::<Vec<_>>();
     let mut command = Command::new(run_path);
     command.args(args);
     command.current_dir(current_dir);
-    command
+
+    let mut child = command
         .spawn()
         .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
-
-
     #[cfg(windows)]
     unsafe {
-        if !console.is_null() {
-            let _ = std::io::stdout().flush();
+        if info.show_console == 0 {
+            FreeConsole();
         }
-        FreeConsole();
     }
+    let result = child
+        .wait()
+        .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
+
+    std::process::exit(result.code().unwrap_or(0))
 }

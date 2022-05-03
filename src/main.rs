@@ -52,7 +52,7 @@ pub struct Args {
     #[clap(short = 'l', long)]
     #[allow(dead_code)]
     list_runners:     bool,
-    /// Open a console when starting the runner on Windows
+    /// Unconditionally show a console window on Windows
     #[clap(short = 's', long)]
     show_console:     bool,
     /// Set the current dir of the target to the unpack directory
