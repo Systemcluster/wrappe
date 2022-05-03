@@ -43,7 +43,7 @@ strip = "symbols"
 
 [dependencies]
 
-staticfilemap = {version = "0.3.0", default-features = false, features = ["zstd"]}
+staticfilemap = {version = "0.4.0", default-features = false, features = ["zstd"]}
 
 clap = {version = "3.1.12", features = ["std", "color", "suggestions", "derive", "unicode", "wrap_help"]}
 color-backtrace = "0.5.1"
@@ -54,10 +54,10 @@ num_cpus = "1.13.1"
 path-slash = "0.1.4"
 rand = "0.8.5"
 rayon = "1.5.2"
-sysinfo = "0.23.10"
+sysinfo = "0.23.11"
 twox-hash = {version = "1.6.2", default-features = false}
 zerocopy = "0.6.1"
-zstd = "0.10.0"
+zstd = {version = "0.11.1", default-features = false, features = ["legacy", "arrays"]}
 
 [build-dependencies]
 jwalk = "0.6.0"
