@@ -40,6 +40,11 @@ jobs:
             target
           key: cargo-nightly-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Check build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+
       - name: Check formatting
         uses: actions-rs/cargo@v1
         with:
