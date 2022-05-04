@@ -18,7 +18,7 @@ use rayon::prelude::*;
 use sysinfo::{System, SystemExt};
 use twox_hash::XxHash64;
 use zerocopy::AsBytes;
-use zstd::stream::copy_encode;
+use zstd::Encoder;
 
 use crate::types::*;
 
@@ -43,6 +43,16 @@ impl<R: Read, H: Hasher> Read for HashReader<R, H> {
     }
 }
 
+pub fn copy_encode<R: Read, W: Write>(
+    mut source: R, destination: W, level: i32, threads: u32,
+) -> Result<()> {
+    let mut encoder = Encoder::new(destination, level)?;
+    encoder.multithread(threads)?;
+    copy(&mut source, &mut encoder)?;
+    encoder.finish()?;
+    Ok(())
+}
+
 /// Compress the payload in `source` and write it into `target`.
 /// The data is written subsequently in the following order:
 /// - compressed file contents
@@ -62,9 +72,10 @@ pub fn compress<
 ) -> usize {
     let source: &Path = source.as_ref();
 
+    let num_cpus = num_cpus::get() as u64;
     let system = System::new_with_specifics(sysinfo::RefreshKind::new().with_memory());
     let memory = system.total_memory();
-    let in_memory_limit = memory / num_cpus::get() as u64 * 1000;
+    let in_memory_limit = memory / num_cpus * 1000;
 
     let entries = WalkDir::new(&source)
         .skip_hidden(false)
@@ -189,9 +200,11 @@ pub fn compress<
             let file = file.ok()?;
 
             let mut in_memory = true;
+            let mut meta_len = 0;
             let meta = file.metadata();
             if let Ok(ref meta) = meta {
-                if meta.len() > in_memory_limit {
+                meta_len = meta.len();
+                if meta_len > in_memory_limit {
                     in_memory = false;
                 }
             }
@@ -203,7 +216,7 @@ pub fn compress<
 
             if in_memory {
                 let mut data = Vec::new();
-                if let Err(e) = copy_encode(&mut reader, &mut data, compression as i32) {
+                if let Err(e) = copy_encode(&mut reader, &mut data, compression as i32, 0) {
                     error_callback(&format!("couldn't compress {}: {}", entry.display(), e));
                     return None;
                 }
@@ -239,7 +252,12 @@ pub fn compress<
 
                 if let Err(e) = (|| -> Result<()> {
                     let mut cache = File::create(&cache_path)?;
-                    copy_encode(&mut reader, &cache, compression as i32)?;
+                    copy_encode(
+                        &mut reader,
+                        &cache,
+                        compression as i32,
+                        u64::min(num_cpus / 2, meta_len / in_memory_limit + 1) as u32,
+                    )?;
                     cache.flush()?;
                     cache.sync_all()?;
                     Ok(())
