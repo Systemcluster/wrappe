@@ -8,6 +8,9 @@ use std::{
     time::SystemTime,
 };
 
+#[cfg(any(unix, target_os = "redox"))]
+use std::os::unix::process::CommandExt;
+
 use memmap2::MmapOptions;
 use zerocopy::LayoutVerified;
 
@@ -181,23 +184,36 @@ fn main() {
         println!("running...");
     }
 
+    let _ = mmap;
+
     let args = std::env::args().skip(1).collect::<Vec<_>>();
+    if show_information >= 2 {
+        println!("forwarded args: {:?}", args);
+    }
+
     let mut command = Command::new(run_path);
     command.args(args);
     command.current_dir(current_dir);
-
-    let mut child = command
-        .spawn()
-        .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
-    #[cfg(windows)]
-    unsafe {
-        if info.show_console == 0 {
-            FreeConsole();
-        }
+    #[cfg(any(unix, target_os = "redox"))]
+    {
+        let e = command.exec();
+        panic!("failed to run {}: {}", run_path.display(), e);
     }
-    let result = child
-        .wait()
-        .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
+    #[cfg(not(any(unix, target_os = "redox")))]
+    {
+        let mut child = command
+            .spawn()
+            .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
+        #[cfg(windows)]
+        unsafe {
+            if info.show_console == 0 {
+                FreeConsole();
+            }
+        }
+        let result = child
+            .wait()
+            .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
 
-    std::process::exit(result.code().unwrap_or(0))
+        std::process::exit(result.code().unwrap_or(0))
+    }
 }
