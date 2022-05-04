@@ -11,6 +11,8 @@ use std::{
 use memmap2::MmapOptions;
 use zerocopy::LayoutVerified;
 
+#[cfg(not(windows))]
+use std::os::unix::process::CommandExt;
 #[cfg(windows)]
 use winapi::um::wincon::FreeConsole;
 
@@ -182,22 +184,32 @@ fn main() {
     }
 
     let args = std::env::args().skip(1).collect::<Vec<_>>();
+    if show_information >= 2 {
+        println!("forwarded args: {:?}", args);
+    }
     let mut command = Command::new(run_path);
     command.args(args);
     command.current_dir(current_dir);
-
-    let mut child = command
-        .spawn()
-        .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
-    #[cfg(windows)]
-    unsafe {
-        if info.show_console == 0 {
-            FreeConsole();
-        }
+    #[cfg(not(windows))]
+    {
+        let e = command.exec();
+        // On success, .exec kills the process (it is replaced by the command)
+        panic!("failed to run {}: {}", run_path.display(), e);
     }
-    let result = child
-        .wait()
-        .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
+    #[cfg(windows)]
+    {
+        let mut child = command
+            .spawn()
+            .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
+        unsafe {
+            if info.show_console == 0 {
+                FreeConsole();
+            }
+        }
+        let result = child
+            .wait()
+            .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
 
-    std::process::exit(result.code().unwrap_or(0))
+        std::process::exit(result.code().unwrap_or(0))
+    }
 }
