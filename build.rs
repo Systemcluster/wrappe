@@ -3,13 +3,11 @@ use std::{env::var, path::PathBuf, process::Command, vec::Vec};
 use jwalk::WalkDir;
 use which::which;
 
-
 const TARGETS_ENV: &str = "WRAPPE_TARGETS";
 const FILES_ENV: &str = "WRAPPE_FILES";
 const NO_CROSS_ENV: &str = "WRAPPE_NO_CROSS";
 const OSXCROSS_WORKAROUND_ENV: &str = "WRAPPE_OSXCROSS_WORKAROUND";
 const STARTER_NAME: &str = "startpe";
-
 
 fn get_runner_targets() -> Vec<String> {
     let rustc = var("RUSTC").unwrap();

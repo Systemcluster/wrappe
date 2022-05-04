@@ -29,9 +29,13 @@ pub struct HashReader<R: Read, H: Hasher> {
     hasher: H,
 }
 impl<R: Read, H: Hasher> HashReader<R, H> {
-    pub fn new(reader: R, hasher: H) -> Self { HashReader { reader, hasher } }
+    pub fn new(reader: R, hasher: H) -> Self {
+        HashReader { reader, hasher }
+    }
 
-    pub fn finish(self) -> u64 { self.hasher.finish() }
+    pub fn finish(self) -> u64 {
+        self.hasher.finish()
+    }
 }
 impl<R: Read, H: Hasher> Read for HashReader<R, H> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
@@ -131,7 +135,7 @@ pub fn compress<
             let mut name_array = [0; NAME_SIZE];
             name_array[0..name.len()].copy_from_slice(name.as_bytes());
             directories.push(DirectorySection {
-                name:   name_array,
+                name: name_array,
                 parent: parent as u32,
             });
 
@@ -426,16 +430,16 @@ pub fn compress<
             let mut name_array = [0; NAME_SIZE];
             name_array[0..name.len()].copy_from_slice(name.as_bytes());
             let mut header = SymlinkSection {
-                name:                  name_array,
-                parent:                parent as u32,
-                kind:                  is_file as u8,
-                target:                target as u32,
-                time_accessed_nanos:   0,
+                name: name_array,
+                parent: parent as u32,
+                kind: is_file as u8,
+                target: target as u32,
+                time_accessed_nanos: 0,
                 time_accessed_seconds: 0,
-                time_modified_nanos:   0,
+                time_modified_nanos: 0,
                 time_modified_seconds: 0,
-                mode:                  0,
-                readonly:              0,
+                mode: 0,
+                readonly: 0,
             };
 
             if let Ok(ref meta) = meta {
@@ -487,12 +491,12 @@ pub fn compress<
         target.write_all(section.as_bytes()).unwrap();
     }
     let payload_header = PayloadHeader {
-        kind:               0,
+        kind: 0,
         directory_sections: directories.len(),
-        file_sections:      files.lock().unwrap().len(),
-        symlink_sections:   symlinks.lock().unwrap().len(),
-        section_hash:       hasher.finish(),
-        payload_size:       end - zero,
+        file_sections: files.lock().unwrap().len(),
+        symlink_sections: symlinks.lock().unwrap().len(),
+        section_hash: hasher.finish(),
+        payload_size: end - zero,
     };
     target.write_all(payload_header.as_bytes()).unwrap();
 

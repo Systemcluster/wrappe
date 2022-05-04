@@ -26,47 +26,47 @@ use args::*;
 pub struct Args {
     /// Zstd compression level (0-21)
     #[clap(short = 'c', long, default_value = "8")]
-    compression:      u32,
+    compression: u32,
     /// Which runner to use
     #[clap(short = 'r', long, default_value = "native")]
-    runner:           String,
+    runner: String,
     /// Unpack directory target (temp, local, cwd)
     #[clap(short = 't', long, default_value = "temp")]
-    unpack_target:    String,
+    unpack_target: String,
     /// Unpack directory name [default: inferred from input directory]
     #[clap(short = 'd', long)]
     unpack_directory: Option<String>,
     /// Versioning strategy (sidebyside, replace, none)
     #[clap(short = 'v', long, default_value = "sidebyside")]
-    versioning:       String,
+    versioning: String,
     /// Version specifier override [default: randomly generated]
     #[clap(short = 'V', long)]
-    version:          Option<String>,
+    version: Option<String>,
     /// Verification of existing unpacked data (existence, checksum, none)
     #[clap(short = 'e', long, default_value = "existence")]
-    verification:     String,
+    verification: String,
     /// Information output details (title, verbose, none)
     #[clap(short = 'i', long, default_value = "title")]
     show_information: String,
     /// Prints available runners
     #[clap(short = 'l', long)]
     #[allow(dead_code)]
-    list_runners:     bool,
+    list_runners: bool,
     /// Unconditionally show a console window on Windows
     #[clap(short = 's', long)]
-    show_console:     bool,
+    show_console: bool,
     /// Set the current dir of the target to the unpack directory
     #[clap(short = 'w', long)]
-    current_dir:      bool,
+    current_dir: bool,
     /// Path to the input directory
     #[clap(name = "input", parse(from_os_str))]
-    input:            PathBuf,
+    input: PathBuf,
     /// Path to the executable to start after unpacking
     #[clap(name = "command", parse(from_os_str))]
-    command:          PathBuf,
+    command: PathBuf,
     /// Path to or filename of the output executable
     #[clap(name = "output", parse(from_os_str))]
-    output:           PathBuf,
+    output: PathBuf,
 }
 
 fn main() {

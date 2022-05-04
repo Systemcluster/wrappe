@@ -27,9 +27,13 @@ pub struct HashReader<R: Read, H: Hasher> {
     hasher: H,
 }
 impl<R: Read, H: Hasher> HashReader<R, H> {
-    pub fn new(reader: R, hasher: H) -> Self { HashReader { reader, hasher } }
+    pub fn new(reader: R, hasher: H) -> Self {
+        HashReader { reader, hasher }
+    }
 
-    pub fn finish(self) -> u64 { self.hasher.finish() }
+    pub fn finish(self) -> u64 {
+        self.hasher.finish()
+    }
 }
 impl<R: Read, H: Hasher> Read for HashReader<R, H> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
