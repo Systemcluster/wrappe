@@ -24,7 +24,7 @@ use args::*;
 #[derive(Parser)]
 #[clap(about, version)]
 pub struct Args {
-    /// Zstd compression level (0-21)
+    /// Zstd compression level (0-22)
     #[clap(short = 'c', long, default_value = "8")]
     compression:      u32,
     /// Which runner to use
@@ -59,13 +59,13 @@ pub struct Args {
     #[clap(short = 'w', long)]
     current_dir:      bool,
     /// Path to the input directory
-    #[clap(name = "input", parse(from_os_str))]
+    #[clap(name = "input")]
     input:            PathBuf,
     /// Path to the executable to start after unpacking
-    #[clap(name = "command", parse(from_os_str))]
+    #[clap(name = "command")]
     command:          PathBuf,
     /// Path to or filename of the output executable
-    #[clap(name = "output", parse(from_os_str))]
+    #[clap(name = "output")]
     output:           PathBuf,
 }
 
@@ -167,11 +167,7 @@ fn main() {
         },
         |message| {
             bar_progress.inc(1);
-            bar_progress.println(&format!(
-                "      {}{}",
-                Emoji("⚠ ", ""),
-                style(message).red()
-            ));
+            bar_progress.println(format!("      {}{}", Emoji("⚠ ", ""), style(message).red()));
         },
         |message| {
             bar_progress.set_message(format!("{}", style(message).blue()));

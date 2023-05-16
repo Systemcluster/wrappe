@@ -41,7 +41,7 @@ FLAGS:
 
 OPTIONS:
     -c, --compression <compression>
-            Zstd compression level (0-21) [default: 8]
+            Zstd compression level (0-22) [default: 8]
     -r, --runner <runner>
             Which runner to use [default: native]
     -d, --unpack-directory <unpack-directory>
@@ -70,7 +70,7 @@ This option controls if a console window should be kept open when launching a wi
 
 #### compression
 
-This option controls the Zstandard compression level. Accepted values range from `0` to `21`.
+This option controls the Zstandard compression level. Accepted values range from `0` to `22`.
 
 #### runner
 

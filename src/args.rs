@@ -8,11 +8,11 @@ use rand::{
 use staticfilemap::StaticFileMap;
 
 #[derive(StaticFileMap)]
-#[parse = "env"]
-#[names = "WRAPPE_TARGETS"]
-#[files = "WRAPPE_FILES"]
-#[compression = 16]
-#[algorithm = "zstd"]
+#[parse("env")]
+#[names("WRAPPE_TARGETS")]
+#[files("WRAPPE_FILES")]
+#[compression(16)]
+#[algorithm("zstd")]
 struct StarterMap;
 
 pub fn list_runners() {
@@ -154,7 +154,7 @@ pub fn get_show_information(show_information: &str) -> u8 {
 }
 
 pub fn get_source(source: &Path) -> PathBuf {
-    let source = Path::new(&std::env::current_dir().unwrap()).join(&source);
+    let source = Path::new(&std::env::current_dir().unwrap()).join(source);
     let source = std::fs::canonicalize(&source).unwrap_or_else(|_| {
         println!(
             "{}: {}",
@@ -175,7 +175,7 @@ pub fn get_source(source: &Path) -> PathBuf {
 }
 
 pub fn get_output(output: &Path) -> PathBuf {
-    let output = Path::new(&std::env::current_dir().unwrap()).join(&output);
+    let output = Path::new(&std::env::current_dir().unwrap()).join(output);
     if !output.parent().map(|path| path.is_dir()).unwrap_or(false) {
         println!(
             "{}: {}",
@@ -192,7 +192,7 @@ pub fn get_output(output: &Path) -> PathBuf {
         );
         std::process::exit(-1);
     }
-    std::fs::canonicalize(&output.parent().unwrap())
+    std::fs::canonicalize(output.parent().unwrap())
         .unwrap_or_else(|_| {
             println!(
                 "{}: {}",
@@ -248,7 +248,7 @@ pub fn get_command(command: &Path, source: &Path) -> [u8; 128] {
     } else {
         source
     };
-    let command = match std::fs::canonicalize(&source.join(command)) {
+    let command = match std::fs::canonicalize(source.join(command)) {
         Err(_) => std::fs::canonicalize(Path::new(&std::env::current_dir().unwrap()).join(command)),
         command => command,
     }
@@ -261,7 +261,7 @@ pub fn get_command(command: &Path, source: &Path) -> [u8; 128] {
         std::process::exit(-1);
     }
     let command = if source.is_dir() {
-        command.strip_prefix(&source).unwrap_or_else(|_| {
+        command.strip_prefix(source).unwrap_or_else(|_| {
             println!(
                 "{}",
                 style("command path is not contained in the source directory").red()

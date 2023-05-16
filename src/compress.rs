@@ -77,7 +77,7 @@ pub fn compress<
     let memory = system.total_memory();
     let in_memory_limit = memory / num_cpus * 1000;
 
-    let entries = WalkDir::new(&source)
+    let entries = WalkDir::new(source)
         .skip_hidden(false)
         .sort(true)
         .into_iter()
@@ -109,7 +109,7 @@ pub fn compress<
                 return None;
             }
             let entry = entry.path();
-            let entry = entry.strip_prefix(&source).ok()?;
+            let entry = entry.strip_prefix(source).ok()?;
 
             if entry.file_name()?.len() > NAME_SIZE {
                 error_callback(&format!(
@@ -124,8 +124,7 @@ pub fn compress<
 
             let name = entry.file_name()?.to_str()?;
 
-            let path = entry.to_slash()?;
-            parents.push(path);
+            parents.push(entry.to_slash()?.into_owned());
 
             let parent = entry.parent().unwrap().to_slash().unwrap();
             let parent = match parents.iter().position(|element| element == &parent) {
@@ -151,7 +150,7 @@ pub fn compress<
         })
         .count();
 
-    let zero = target.seek(SeekFrom::Current(0)).unwrap();
+    let zero = target.stream_position().unwrap();
     let archive = Arc::new(Mutex::new(target));
 
     let files = Arc::new(Mutex::new(Vec::<FileSectionHeader>::new()));
@@ -176,9 +175,9 @@ pub fn compress<
                 return None;
             }
 
-            info_callback(&entry.strip_prefix(&source).ok()?.display().to_string());
+            info_callback(&entry.strip_prefix(source).ok()?.display().to_string());
 
-            let parent = entry.strip_prefix(&source).ok()?.parent()?.to_slash()?;
+            let parent = entry.strip_prefix(source).ok()?.parent()?.to_slash()?;
             let parent = match parents.iter().position(|element| element == &parent) {
                 Some(index) => index,
                 None => {
@@ -333,7 +332,7 @@ pub fn compress<
                 files.push(header);
                 let mut links = links.lock();
                 if let Ok(ref mut links) = links {
-                    links.push(entry.strip_prefix(&source).ok()?.to_slash()?);
+                    links.push(entry.strip_prefix(source).ok()?.to_slash()?.into_owned());
                 }
             }
 
@@ -363,9 +362,9 @@ pub fn compress<
                 return None;
             }
 
-            info_callback(&entry.strip_prefix(&source).ok()?.display().to_string());
+            info_callback(&entry.strip_prefix(source).ok()?.display().to_string());
 
-            let parent = entry.strip_prefix(&source).ok()?.parent()?.to_slash()?;
+            let parent = entry.strip_prefix(source).ok()?.parent()?.to_slash()?;
             let parent = match parents.iter().position(|element| element == &parent) {
                 Some(index) => index,
                 None => {
@@ -399,7 +398,7 @@ pub fn compress<
             }
             let link = link.ok()?;
             let is_file = link.is_file();
-            let link = link.strip_prefix(&source);
+            let link = link.strip_prefix(source);
             if let Err(e) = link {
                 error_callback(&format!(
                     "link points to outside the directory, skipping {}: {}",

@@ -17,19 +17,19 @@ path = "src/main.rs"
 
 [dependencies]
 
-dirs = "4.0.0"
-filetime = "0.2.16"
+dirs = "5.0.1"
+filetime = "0.2.21"
 fslock = "0.2.1"
-memmap2 = "0.5.3"
-rayon = "1.5.2"
-twox-hash = {version = "1.6.2", default-features = false}
+memmap2 = "0.7.1"
+rayon = "1.7.0"
+twox-hash = { version = "1.6.3", default-features = false }
 zerocopy = "0.6.1"
-zstd = {version = "0.11.1", default-features = false, features = ["arrays"]}
+zstd = { version = "0.12.3", default-features = false, features = ["arrays"] }
 
 [target.'cfg(windows)'.dependencies]
 
-winapi = {version = "0.3.9", features = [
+winapi = { version = "0.3.9", features = [
   "wincon",
   "wincontypes",
   "consoleapi",
-]}
+] }

@@ -35,7 +35,7 @@ fn get_runner_targets() -> Vec<String> {
             if !available_targets.contains(&target) {
                 let matches = available_targets
                     .iter()
-                    .filter(|t| t.contains(&target))
+                    .filter(|t| t.contains(target))
                     .collect::<Vec<_>>();
                 if matches.len() == 1 {
                     active_targets.push(matches[0].to_string());
@@ -96,9 +96,9 @@ fn compile_runner(target: &str, out_dir: &str) -> bool {
         .current_dir(STARTER_NAME)
         .arg("build")
         .arg("--target")
-        .arg(&target)
+        .arg(target)
         .arg("--target-dir")
-        .arg(&out_dir);
+        .arg(out_dir);
     if profile == "release" {
         command.arg("--release");
     }
@@ -112,7 +112,7 @@ fn compile_runner(target: &str, out_dir: &str) -> bool {
 fn get_git_hash() -> Option<String> {
     which("git").ok().and_then(|git| {
         Command::new(git)
-            .args(&["rev-parse", "--short", "HEAD"])
+            .args(["rev-parse", "--short", "HEAD"])
             .output()
             .ok()
             .and_then(|output| {
