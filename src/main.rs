@@ -1,5 +1,6 @@
 use std::{
     convert::TryInto,
+    error::Error,
     fs::File,
     io::{BufWriter, Cursor, Write},
     path::PathBuf,
@@ -8,6 +9,7 @@ use std::{
 
 use clap::Parser;
 use console::{style, Emoji};
+use editpe::Image;
 use indicatif::{ProgressBar, ProgressStyle};
 use jwalk::WalkDir;
 use zstd::stream::copy_decode;
@@ -24,48 +26,48 @@ use args::*;
 #[derive(Parser)]
 #[clap(about, version)]
 pub struct Args {
-    /// Zstd compression level (0-22)
-    #[clap(short = 'c', long, default_value = "8")]
-    compression:      u32,
-    /// Which runner to use
-    #[clap(short = 'r', long, default_value = "native")]
+    /// Platform to pack for (see --list-runners for available options)
+    #[arg(short = 'r', long, default_value = "native")]
     runner:           String,
+    /// Zstd compression level (0-22)
+    #[arg(short = 'c', long, default_value = "8")]
+    compression:      u32,
     /// Unpack directory target (temp, local, cwd)
-    #[clap(short = 't', long, default_value = "temp")]
+    #[arg(short = 't', long, default_value = "temp")]
     unpack_target:    String,
     /// Unpack directory name [default: inferred from input directory]
-    #[clap(short = 'd', long)]
+    #[arg(short = 'd', long)]
     unpack_directory: Option<String>,
     /// Versioning strategy (sidebyside, replace, none)
-    #[clap(short = 'v', long, default_value = "sidebyside")]
+    #[arg(short = 'v', long, default_value = "sidebyside")]
     versioning:       String,
-    /// Version specifier override [default: randomly generated]
-    #[clap(short = 'V', long)]
-    version:          Option<String>,
     /// Verification of existing unpacked data (existence, checksum, none)
-    #[clap(short = 'e', long, default_value = "existence")]
+    #[arg(short = 'e', long, default_value = "existence")]
     verification:     String,
+    /// Version string override [default: randomly generated]
+    #[arg(short = 's', long)]
+    version_string:   Option<String>,
     /// Information output details (title, verbose, none)
-    #[clap(short = 'i', long, default_value = "title")]
+    #[arg(short = 'i', long, default_value = "title")]
     show_information: String,
-    /// Prints available runners
-    #[clap(short = 'l', long)]
+    /// Show or attach to a console window (auto, always, never)
+    #[arg(short = 'n', long, default_value = "auto")]
+    console:          String,
+    /// Set the current working directory of the target to the unpack directory
+    #[arg(short = 'w', long)]
+    current_dir:      bool,
+    /// Print available runners
+    #[arg(short = 'l', long)]
     #[allow(dead_code)]
     list_runners:     bool,
-    /// Unconditionally show a console window on Windows
-    #[clap(short = 's', long)]
-    show_console:     bool,
-    /// Set the current dir of the target to the unpack directory
-    #[clap(short = 'w', long)]
-    current_dir:      bool,
     /// Path to the input directory
-    #[clap(name = "input")]
+    #[arg(name = "input")]
     input:            PathBuf,
     /// Path to the executable to start after unpacking
-    #[clap(name = "command")]
+    #[arg(name = "command")]
     command:          PathBuf,
     /// Path to or filename of the output executable
-    #[clap(name = "output")]
+    #[arg(name = "output")]
     output:           PathBuf,
 }
 
@@ -80,15 +82,18 @@ fn main() {
     let args = Args::parse();
 
     let runner = get_runner(&args.runner);
+    let runner_name = get_runner_name(&args.runner);
     let unpack_target = get_unpack_target(&args.unpack_target);
     let versioning = get_versioning(&args.versioning);
-    let version = get_version(args.version.as_deref());
+    let version = get_version(args.version_string.as_deref());
     let source = get_source(&args.input);
     let output = get_output(&args.output);
     let command = get_command(&args.command, &source);
     let unpack_directory = get_unpack_directory(args.unpack_directory.as_deref(), &source);
     let verification = get_verification(&args.verification);
     let show_information = get_show_information(&args.show_information);
+
+    let mut show_console = get_show_console(&args.console, runner_name);
 
     let file = File::create(&output).unwrap_or_else(|_| {
         println!(
@@ -132,7 +137,7 @@ fn main() {
     };
 
     println!(
-        "{} {}writing runner {}…",
+        "{} {}writing runner {} for target {}…",
         style("[2/4]").bold().black(),
         Emoji("📃 ", ""),
         style(
@@ -142,10 +147,62 @@ fn main() {
                 .display()
         )
         .blue()
-        .bright()
+        .bright(),
+        style(&runner_name).magenta(),
     );
     let mut writer = BufWriter::new(file);
-    copy_decode(Cursor::new(&runner), &mut writer).unwrap();
+    if runner_name.contains("windows") {
+        let mut decompressed = Vec::new();
+        copy_decode(Cursor::new(runner), &mut decompressed).unwrap();
+
+        let decompressed = (|| -> Result<Vec<u8>, Box<dyn Error>> {
+            let mut runner_image = Image::parse(&decompressed)?;
+            runner_image.set_subsystem(if show_console { 3 } else { 2 });
+            Ok(runner_image.data().to_owned())
+        })()
+        .unwrap_or_else(|error| {
+            println!(
+                "      {}{} {}",
+                Emoji("⚠️ ", ""),
+                style("failed to set subsystem for runner:").yellow(),
+                style(error).yellow()
+            );
+            decompressed
+        });
+        let decompressed = (|| -> Result<Vec<u8>, Box<dyn Error>> {
+            let mut runner_image = Image::parse(&decompressed)?;
+            let command_path = if source.is_file() {
+                source.clone()
+            } else {
+                source.join(get_command_path(&args.command, &source))
+            };
+            let command_data = std::fs::read(command_path)?;
+            let command_image = Image::parse(command_data)?;
+            let command_resources = command_image
+                .resource_directory()
+                .cloned()
+                .unwrap_or_default();
+            if args.console == "auto" {
+                show_console = command_image.subsystem() == 3;
+                runner_image.set_subsystem(command_image.subsystem());
+            }
+            runner_image.set_resource_directory(command_resources)?;
+            Ok(runner_image.data().to_owned())
+        })()
+        .unwrap_or_else(|error| {
+            println!(
+                "      {}{} {}",
+                Emoji("⚠️ ", ""),
+                style("failed to copy resources to runner:").yellow(),
+                style(error).yellow()
+            );
+            decompressed
+        });
+
+        writer.write_all(&decompressed).unwrap();
+    } else {
+        copy_decode(Cursor::new(&runner), &mut writer).unwrap();
+    }
 
     println!(
         "{} {}compressing {} files and directories…",
@@ -213,7 +270,7 @@ fn main() {
 
     let info = StarterInfo {
         signature: [0x50, 0x45, 0x33, 0x44, 0x41, 0x54, 0x41, 0x00],
-        show_console: args.show_console.into(),
+        show_console: show_console.into(),
         current_dir: args.current_dir.into(),
         verification,
         show_information,

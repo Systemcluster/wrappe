@@ -1,6 +1,6 @@
 # wrappe
 
-Packer to create self-contained single-binary applications from executables and directory trees.
+Packer for creating self-contained single-binary applications from executables and directory trees.
 
 ## Features
 
@@ -9,6 +9,8 @@ Packer to create self-contained single-binary applications from executables and 
 * Streaming decompression with minimal memory overhead
 * Compression and decompression of files in parallel
 * Decompression only when necessary by checking existing files
+* Automatic transfer of resources including icons and version information
+* Platform support for Windows, macOS, Linux and more
 
 ## Usage
 
@@ -24,53 +26,44 @@ Running wrappe requires specifying the path to the input, the executable to run,
 
 `input` specifies the path to a directory or a file. `command` has to specify a file inside the input directory, or in case of an input file, the input file itself. `output` specifies a filename or path to a file. It will be overwritten if it already exists.
 
-```shell
-wrappe [FLAGS] [OPTIONS] <input> <command> <output>
+```text
+wrappe [OPTIONS] <input> <command> <output>
 
-ARGS:
+Arguments:
     <input>      Path to the input directory
     <command>    Path to the executable to start after unpacking
     <output>     Path to or filename of the output executable
 
-FLAGS:
-    -w, --current-dir     Set the current dir of the target to the unpack directory
-    -h, --help            Prints help information
-    -l, --list-runners    Prints available runners
-    -s, --show-console    Unconditionally show a console window on Windows
-    -V, --version         Prints version information
-
-OPTIONS:
-    -c, --compression <compression>
+Options:
+  -r, --runner <RUNNER>
+            Platform to pack for (see --list-runners for available options) [default: native]
+  -c, --compression <COMPRESSION>
             Zstd compression level (0-22) [default: 8]
-    -r, --runner <runner>
-            Which runner to use [default: native]
-    -d, --unpack-directory <unpack-directory>
-            Unpack directory name [default: inferred from input directory]
-    -t, --unpack-target <unpack-target>
+  -t, --unpack-target <UNPACK_TARGET>
             Unpack directory target (temp, local, cwd) [default: temp]
-    -e, --verification <verification>
-            Verification of existing unpacked data (existence, checksum, none) [default: existence]
-    -v, --versioning <versioning>
+  -d, --unpack-directory <UNPACK_DIRECTORY>
+            Unpack directory name [default: inferred from input directory]
+  -v, --versioning <VERSIONING>
             Versioning strategy (sidebyside, replace, none) [default: sidebyside]
-    -V, --version <version>
-            Version specifier override [default: randomly generated]
-    -i, --show-information <show-information>
+  -e, --verification <VERIFICATION>
+            Verification of existing unpacked data (existence, checksum, none) [default: existence]
+  -s, --version-string <SPECIFIER>
+            Version string override [default: randomly generated]
+  -i, --show-information <SHOW_INFORMATION>
             Information output details (title, verbose, none) [default: title]
+  -n, --console <CONSOLE>
+            Show or attach to a console window (auto, always, never) [default: auto]
+  -w, --current-dir
+            Set the current working directory of the target to the unpack directory
+  -l, --list-runners
+            Print available runners
+  -h, --help
+            Print help
+  -V, --version
+            Print version
 ```
 
-### Flags and Options
-
-#### current-dir
-
-By default the working directory of the unpacked executable is set to the working directory of the runner executable. This flag changes the working directory to the unpack directory.
-
-#### show-console
-
-This option controls if a console window should be kept open when launching a windows-subsystem application from the Windows explorer.
-
-#### compression
-
-This option controls the Zstandard compression level. Accepted values range from `0` to `22`.
+### Options
 
 #### runner
 
@@ -78,9 +71,9 @@ This option specifies which runner will be used for the output executable. It de
 
 Partial matches are accepted if unambiguous, for instance `windows` will be accepted if only one runner for Windows is available.
 
-#### unpack-directory
+#### compression
 
-This option specifies the unpack directory name inside the `unpack-target`. It defaults to the name of the input file or directory.
+This option controls the Zstandard compression level. Accepted values range from `0` to `22`.
 
 #### unpack-target
 
@@ -92,15 +85,9 @@ This option specifies the directory the packed files are unpacked to. Accepted v
 
 It defaults to `temp`.
 
-#### verification
+#### unpack-directory
 
-This option specifies the verification of the unpacked payload before skipping extraction. Accepted values are:
-
-* `existence`: All files in the payload will be checked for existence.
-* `checksum`: A checksum for all files will be calculated and compared with the checksum calculated during the packing process.
-* `none`: No verification will be performed.
-
-It defaults to `existence`.
+This option specifies the unpack directory name inside the `unpack-target`. It defaults to the name of the input file or directory.
 
 #### versioning
 
@@ -112,7 +99,17 @@ This option specifies the versioning strategy. Accepted values are:
 
 It defaults to `sidebyside`.
 
-#### version
+#### verification
+
+This option specifies the verification of the unpacked payload before skipping extraction. Accepted values are:
+
+* `existence`: All files in the payload will be checked for existence.
+* `checksum`: A checksum for all files will be calculated and compared with the checksum calculated during the packing process.
+* `none`: No verification will be performed.
+
+It defaults to `existence`.
+
+#### version-string
 
 This option specifies the version string. It defaults to a randomly generated string of 8 characters.
 
@@ -125,6 +122,20 @@ This option controls the information output of the runner. Accepted values are:
 * `none`: The runner will show no additional output.
 
 It defaults to `title`. Error information is always shown when applicable.
+
+#### show-console
+
+This option controls if the runner should attach to a console or if a console window should be opened when launching a Windows application from the Windows explorer. Accepted values are:
+
+* `auto`: Select the console behavior based on the subsystem of the input executable if available. If not available, it will be disabled for Windows runners, and enabled for all other runners.
+* `always` Always attach to or open a console.
+* `never`: Never open or attach to a console.
+
+It defaults to `auto`. This option currently only affects Windows runners, other runners will always attach to a console if available.
+
+#### current-dir
+
+By default the working directory of the unpacked executable is set to the working directory of the runner executable. This flag changes the working directory to the unpack directory.
 
 ## Download
 

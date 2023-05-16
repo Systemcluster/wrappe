@@ -16,15 +16,32 @@ use staticfilemap::StaticFileMap;
 struct StarterMap;
 
 pub fn list_runners() {
+    println!("{}:", style("available runners").blue().bright());
     println!(
-        "{}: {}",
-        style("available runners").blue(),
-        format!(
-            "{} {} ",
-            StarterMap::keys()[0],
-            style("(default)").bold().black()
-        ) + &StarterMap::keys()[1..].join(", ")
+        "  {} {}",
+        StarterMap::keys()[0],
+        style("(default)").bold().dim()
     );
+    for runner in &StarterMap::keys()[1..] {
+        println!("  {}", runner);
+    }
+}
+
+pub fn get_runner_name(name: &str) -> &'static str {
+    if name == "native" || name == "default" {
+        return StarterMap::keys()[0];
+    }
+    StarterMap::get_match_index(name)
+        .map(|id| StarterMap::keys()[id])
+        .unwrap_or_else(|| {
+            println!(
+                "{}: {}",
+                style("not a valid runner").red(),
+                style(name).red()
+            );
+            list_runners();
+            std::process::exit(-1);
+        })
 }
 
 pub fn get_runner(name: &str) -> &'static [u8] {
@@ -58,7 +75,7 @@ pub fn get_unpack_target(directory: &str) -> u8 {
             );
             println!(
                 "{}: temp {}, local, cwd",
-                style("available target directories").blue(),
+                style("available target directories").blue().bright(),
                 style("(default)").bold().black()
             );
             std::process::exit(-1);
@@ -80,7 +97,7 @@ pub fn get_versioning(versioning: &str) -> u8 {
             );
             println!(
                 "{}: sidebyside {}, replace",
-                style("available versioning strategies").blue(),
+                style("available versioning strategies").blue().bright(),
                 style("(default)").bold().black()
             );
             std::process::exit(-1);
@@ -123,7 +140,7 @@ pub fn get_verification(verification: &str) -> u8 {
             );
             println!(
                 "{}: none, existence {}, checksum",
-                style("available verification options").blue(),
+                style("available verification options").blue().bright(),
                 style("(default)").bold().black()
             );
             std::process::exit(-1);
@@ -145,7 +162,30 @@ pub fn get_show_information(show_information: &str) -> u8 {
             );
             println!(
                 "{}: none, title {}, verbose",
-                style("available information details options").blue(),
+                style("available information details options")
+                    .blue()
+                    .bright(),
+                style("(default)").bold().black()
+            );
+            std::process::exit(-1);
+        }
+    }
+}
+
+pub fn get_show_console(show_console: &str, runner_name: &str) -> bool {
+    match show_console.to_lowercase().as_str() {
+        "auto" => !runner_name.contains("windows"),
+        "always" => true,
+        "never" => false,
+        _ => {
+            println!(
+                "{}: {}",
+                style("not a valid console option").red(),
+                style(show_console).red(),
+            );
+            println!(
+                "{}: auto {}, always, never",
+                style("available console options").blue().bright(),
                 style("(default)").bold().black()
             );
             std::process::exit(-1);
@@ -239,7 +279,7 @@ pub fn get_unpack_directory(directory: Option<&str>, source: &Path) -> [u8; 128]
     _directory
 }
 
-pub fn get_command(command: &Path, source: &Path) -> [u8; 128] {
+pub fn get_command_path(command: &Path, source: &Path) -> PathBuf {
     let source = if source.is_file() {
         source.parent().unwrap_or_else(|| {
             println!("{}", style("source path has no parent").red());
@@ -277,6 +317,11 @@ pub fn get_command(command: &Path, source: &Path) -> [u8; 128] {
             std::process::exit(-1);
         })
     };
+    command.to_owned()
+}
+
+pub fn get_command(command: &Path, source: &Path) -> [u8; 128] {
+    let command = get_command_path(command, source);
     let command = command
         .to_str()
         .unwrap_or_else(|| {

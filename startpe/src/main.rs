@@ -1,21 +1,18 @@
 use std::{
     env::current_exe,
     fs::{read_link, File},
-    io::Write,
     mem::size_of,
     panic::set_hook,
     process::Command,
-    time::SystemTime,
 };
 
 #[cfg(any(unix, target_os = "redox"))]
 use std::os::unix::process::CommandExt;
+#[cfg(windows)]
+use std::{io::Write, time::SystemTime};
 
 use memmap2::MmapOptions;
 use zerocopy::LayoutVerified;
-
-#[cfg(windows)]
-use winapi::um::wincon::FreeConsole;
 
 mod types;
 use types::*;
@@ -204,12 +201,6 @@ fn main() {
         let mut child = command
             .spawn()
             .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
-        #[cfg(windows)]
-        unsafe {
-            if info.show_console == 0 {
-                FreeConsole();
-            }
-        }
         let result = child
             .wait()
             .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
