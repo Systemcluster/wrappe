@@ -2,9 +2,12 @@ use std::{
     env::temp_dir,
     fs::{read_link, remove_file, symlink_metadata, File},
     hash::Hasher,
-    io::{copy, Cursor, Read, Result, Seek, SeekFrom, Write},
+    io::{copy, Cursor, Read, Result, Seek, Write},
     path::Path,
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc, Mutex,
+    },
     time::SystemTime,
 };
 
@@ -69,7 +72,7 @@ pub fn compress<
 >(
     source: T, target: &mut W, compression: u32, progress_callback: P, error_callback: E,
     info_callback: I,
-) -> usize {
+) -> (u64, u64, u64) {
     let source: &Path = source.as_ref();
 
     let num_cpus = num_cpus::get() as u64;
@@ -156,6 +159,8 @@ pub fn compress<
     let files = Arc::new(Mutex::new(Vec::<FileSectionHeader>::new()));
     let links = Arc::new(Mutex::new(Vec::<String>::new()));
 
+    let read = AtomicU64::new(0);
+
     // compress and append files
     let _ = entries
         .par_iter()
@@ -222,7 +227,7 @@ pub fn compress<
 
                 let mut archive = archive.lock();
                 if let Ok(ref mut archive) = archive {
-                    start = archive.seek(SeekFrom::Current(0)).unwrap();
+                    start = archive.stream_position().unwrap();
                     let mut hasher =
                         HashReader::new(Cursor::new(&data), XxHash64::with_seed(HASH_SEED));
                     if let Err(e) = copy(&mut hasher, archive.by_ref()) {
@@ -234,7 +239,7 @@ pub fn compress<
                         return None;
                     }
                     compressed_hash = hasher.finish();
-                    end = archive.seek(SeekFrom::Current(0)).unwrap();
+                    end = archive.stream_position().unwrap();
                 }
             } else {
                 info_callback(&format!(
@@ -270,9 +275,9 @@ pub fn compress<
                     let mut archive = archive.lock();
                     let mut hasher = HashReader::new(&cache, XxHash64::with_seed(HASH_SEED));
                     if let Ok(ref mut archive) = archive {
-                        start = archive.seek(SeekFrom::Current(0)).unwrap();
+                        start = archive.stream_position().unwrap();
                         copy(&mut hasher, archive.by_ref())?;
-                        end = archive.seek(SeekFrom::Current(0)).unwrap();
+                        end = archive.stream_position().unwrap();
                     }
                     compressed_hash = hasher.finish();
                     Ok(())
@@ -288,6 +293,8 @@ pub fn compress<
                 let _ = remove_file(cache_path);
             }
             let file_hash = reader.finish();
+
+            read.fetch_add(meta_len, Ordering::AcqRel);
 
             let mut name_array = [0; NAME_SIZE];
             name_array[0..name.len()].copy_from_slice(name.as_bytes());
@@ -487,7 +494,7 @@ pub fn compress<
         .count();
 
     let mut target = archive.lock().unwrap();
-    let end = target.seek(SeekFrom::Current(0)).unwrap();
+    let end = target.stream_position().unwrap();
 
     // write sections
     let mut hasher = XxHash64::with_seed(HASH_SEED);
@@ -512,6 +519,12 @@ pub fn compress<
         payload_size:       end - zero,
     };
     target.write_all(payload_header.as_bytes()).unwrap();
+    target.flush().unwrap();
+    let written = target.stream_position().unwrap();
 
-    payload_header.len()
+    (
+        payload_header.len() as u64,
+        read.load(Ordering::Acquire),
+        written - zero,
+    )
 }

@@ -111,6 +111,7 @@ fn main() {
                     .display()
             )
             .blue()
+            .bright()
         );
         WalkDir::new(&source).skip_hidden(false).into_iter().count() as u64 - 1
     } else {
@@ -125,6 +126,7 @@ fn main() {
                     .display()
             )
             .blue()
+            .bright()
         );
         1
     };
@@ -140,6 +142,7 @@ fn main() {
                 .display()
         )
         .blue()
+        .bright()
     );
     let mut writer = BufWriter::new(file);
     copy_decode(Cursor::new(&runner), &mut writer).unwrap();
@@ -158,7 +161,7 @@ fn main() {
     bar_progress.set_length(count);
     bar_progress.set_position(0);
     bar_progress.enable_steady_tick(Duration::from_millis(12));
-    let compressed = compress(
+    let (compressed, read, written) = compress(
         &source,
         &mut writer,
         args.compression,
@@ -170,12 +173,23 @@ fn main() {
             bar_progress.println(format!("      {}{}", Emoji("⚠ ", ""), style(message).red()));
         },
         |message| {
-            bar_progress.set_message(format!("{}", style(message).blue()));
+            bar_progress.set_message(format!("{}", style(message).blue().bright()));
         },
-    ) as u64;
+    );
     bar_progress.finish_and_clear();
     writer.flush().unwrap();
 
+    println!(
+        "      {}{}",
+        Emoji("💾 ", ""),
+        style(format!(
+            "{:.2}MB read, {:.2}MB written, {:.2}% of original size",
+            read as f64 / 1024.0 / 1024.0,
+            written as f64 / 1024.0 / 1024.0,
+            (written as f64 / read as f64) * 100.0
+        ))
+        .dim(),
+    );
     println!(
         "      {}{} {} {}{}",
         Emoji("✨ ", ""),
