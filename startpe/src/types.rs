@@ -1,7 +1,8 @@
 pub use zerocopy::FromBytes;
 
-pub const WRAPPE_FORMAT: u8 = 200;
+pub const WRAPPE_FORMAT: u8 = 201;
 pub const NAME_SIZE: usize = 128;
+pub const ARGS_SIZE: usize = 512;
 
 #[repr(C, packed)]
 #[derive(FromBytes)]
@@ -17,6 +18,7 @@ pub struct StarterInfo {
     pub wrappe_format:    u8,
     pub unpack_directory: [u8; NAME_SIZE],
     pub command:          [u8; NAME_SIZE],
+    pub arguments:        [u8; ARGS_SIZE],
 }
 
 #[repr(C, packed)]

@@ -69,6 +69,9 @@ pub struct Args {
     /// Path to or filename of the output executable
     #[arg(name = "output")]
     output:           PathBuf,
+    /// Command line arguments to pass to the executable
+    #[arg(last = true)]
+    arguments:        Vec<String>,
 }
 
 fn main() {
@@ -92,6 +95,7 @@ fn main() {
     let unpack_directory = get_unpack_directory(args.unpack_directory.as_deref(), &source);
     let verification = get_verification(&args.verification);
     let show_information = get_show_information(&args.show_information);
+    let arguments = get_arguments(&args.arguments);
 
     let mut show_console = get_show_console(&args.console, runner_name);
 
@@ -279,6 +283,7 @@ fn main() {
         versioning,
         unpack_directory,
         command,
+        arguments,
         wrappe_format: WRAPPE_FORMAT,
     };
     writer.write_all(info.as_bytes()).unwrap();

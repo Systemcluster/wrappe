@@ -12,7 +12,15 @@ Packer for creating self-contained single-binary applications from executables a
 * Automatic transfer of resources including icons and version information
 * Platform support for Windows, macOS, Linux and more
 
+With wrappe you can bundle applications and their files into single executables. The packed files are automatically decompressed when the executable is launched. This allows distributing your application as a single file without the need for an installer, while resulting in a smaller file size and faster startup than many alternatives.
+
 ## Usage
+
+### Download
+
+A snapshot build of the latest version can be found on the [release page](https://github.com/Systemcluster/wrappe/releases).
+
+Snapshot builds contain runners for Windows (`x86_64-pc-windows-gnu`), macOS (`x86_64-apple-darwin` and `aarch64-apple-darwin`) and Linux (`x86_64-unknown-linux-musl`).
 
 ### Example
 
@@ -22,17 +30,18 @@ wrappe --compression 16 dist dist/diogenes.exe packed.exe
 
 ### Details
 
-Running wrappe requires specifying the path to the input, the executable to run, and the name of the output executable.
+Running `wrappe` requires specifying the `input` directory, the `command` to launch, and the `output` filename. The input directory and all contained files and links will be packed into the output executable. The command must be an executable included in the input directory.
 
-`input` specifies the path to a directory or a file. `command` has to specify a file inside the input directory, or in case of an input file, the input file itself. `output` specifies a filename or path to a file. It will be overwritten if it already exists.
+Additional arguments for the packed executable can be specified after `--` and will automatically be passed to the command when launched.
 
 ```text
-wrappe [OPTIONS] <input> <command> <output>
+wrappe [OPTIONS] <input> <command> <output> [-- <ARGUMENTS>...]
 
 Arguments:
-    <input>      Path to the input directory
-    <command>    Path to the executable to start after unpacking
-    <output>     Path to or filename of the output executable
+    <input>         Path to the input directory
+    <command>       Path to the executable to start after unpacking
+    <output>        Path to or filename of the output executable
+    [ARGUMENTS]...  Command line arguments to pass to the executable
 
 Options:
   -r, --runner <RUNNER>
@@ -136,12 +145,6 @@ It defaults to `auto`. This option currently only affects Windows runners, other
 #### current-dir
 
 By default the working directory of the unpacked executable is set to the working directory of the runner executable. This flag changes the working directory to the unpack directory.
-
-## Download
-
-A snapshot build of the latest version can be found on the [release page](https://github.com/Systemcluster/wrappe/releases).
-
-Snapshot builds contain runners for Windows (`x86_64-pc-windows-gnu`), macOS (`x86_64-apple-darwin` and `aarch64-apple-darwin`) and Linux (`x86_64-unknown-linux-musl`).
 
 ## Compilation
 

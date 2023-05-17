@@ -7,6 +7,8 @@ use rand::{
 };
 use staticfilemap::StaticFileMap;
 
+use crate::types::{ARGS_SIZE, NAME_SIZE};
+
 #[derive(StaticFileMap)]
 #[parse("env")]
 #[names("WRAPPE_TARGETS")]
@@ -244,7 +246,7 @@ pub fn get_output(output: &Path) -> PathBuf {
         .join(output.file_name().unwrap())
 }
 
-pub fn get_unpack_directory(directory: Option<&str>, source: &Path) -> [u8; 128] {
+pub fn get_unpack_directory(directory: Option<&str>, source: &Path) -> [u8; NAME_SIZE] {
     let directory = if let Some(directory) = directory {
         directory.as_bytes()
     } else {
@@ -267,14 +269,14 @@ pub fn get_unpack_directory(directory: Option<&str>, source: &Path) -> [u8; 128]
             })
             .as_bytes()
     };
-    if directory.len() >= 128 {
+    if directory.len() >= NAME_SIZE {
         println!(
             "{}",
             style("unpack directory name is longer than 127 characters").red()
         );
         std::process::exit(-1);
     }
-    let mut _directory = [0; 128];
+    let mut _directory = [0; NAME_SIZE];
     _directory[0..directory.len()].copy_from_slice(directory);
     _directory
 }
@@ -320,7 +322,7 @@ pub fn get_command_path(command: &Path, source: &Path) -> PathBuf {
     command.to_owned()
 }
 
-pub fn get_command(command: &Path, source: &Path) -> [u8; 128] {
+pub fn get_command(command: &Path, source: &Path) -> [u8; NAME_SIZE] {
     let command = get_command_path(command, source);
     let command = command
         .to_str()
@@ -329,14 +331,29 @@ pub fn get_command(command: &Path, source: &Path) -> [u8; 128] {
             std::process::exit(-1);
         })
         .as_bytes();
-    if command.len() >= 128 {
+    if command.len() >= NAME_SIZE {
         println!(
             "{}",
             style("command path is longer than 127 characters").red()
         );
         std::process::exit(-1);
     }
-    let mut _command = [0; 128];
+    let mut _command = [0; NAME_SIZE];
     _command[0..command.len()].copy_from_slice(command);
     _command
+}
+
+pub fn get_arguments(arguments: &[String]) -> [u8; ARGS_SIZE] {
+    let arguments = arguments.join("\u{1f}");
+    let arguments = arguments.as_bytes();
+    if arguments.len() >= ARGS_SIZE {
+        println!(
+            "{}",
+            style("arguments list is longer than 127 characters").red(),
+        );
+        std::process::exit(-1);
+    }
+    let mut _arguments = [0; ARGS_SIZE];
+    _arguments[0..arguments.len()].copy_from_slice(arguments);
+    _arguments
 }

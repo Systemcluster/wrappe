@@ -170,6 +170,28 @@ fn main() {
         }
     }
 
+    let baked_arguments = std::str::from_utf8(
+        &info.arguments[0..(info
+            .arguments
+            .iter()
+            .position(|&c| c == b'\0')
+            .unwrap_or(info.arguments.len()))],
+    )
+    .expect("couldn't parse baked arguments");
+    let baked_arguments = baked_arguments
+        .split('\u{1f}')
+        .map(|arg| arg.trim().to_string())
+        .filter(|arg| !arg.is_empty())
+        .collect::<Vec<_>>();
+    if show_information >= 2 && !baked_arguments.is_empty() {
+        println!("baked arguments: {:?}", baked_arguments);
+    }
+
+    let forwarded_arguments = std::env::args().skip(1).collect::<Vec<_>>();
+    if show_information >= 2 && !forwarded_arguments.is_empty() {
+        println!("forwarded arguments: {:?}", forwarded_arguments);
+    }
+
     let current_dir = std::env::current_dir().unwrap();
     let current_dir = if info.current_dir == 1 {
         &unpack_dir
@@ -178,18 +200,18 @@ fn main() {
     };
     if show_information >= 2 {
         println!("current dir: {}", current_dir.display());
+    }
+
+    drop(mmap);
+    drop(file);
+
+    if show_information >= 2 {
         println!("running...");
     }
 
-    let _ = mmap;
-
-    let args = std::env::args().skip(1).collect::<Vec<_>>();
-    if show_information >= 2 {
-        println!("forwarded args: {:?}", args);
-    }
-
     let mut command = Command::new(run_path);
-    command.args(args);
+    command.args(baked_arguments);
+    command.args(forwarded_arguments);
     command.current_dir(current_dir);
     #[cfg(any(unix, target_os = "redox"))]
     {
