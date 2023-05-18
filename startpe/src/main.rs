@@ -1,6 +1,7 @@
 use std::{
     env::current_exe,
     fs::{read_link, File},
+    io::Write,
     mem::size_of,
     panic::set_hook,
     process::Command,
@@ -8,8 +9,13 @@ use std::{
 
 #[cfg(any(unix, target_os = "redox"))]
 use std::os::unix::process::CommandExt;
+#[cfg(not(any(unix, target_os = "redox")))]
+use std::process::Stdio;
 #[cfg(windows)]
-use std::{io::Write, time::SystemTime};
+use std::time::SystemTime;
+
+#[cfg(windows)]
+use winapi::um::wincon::{AttachConsole, ATTACH_PARENT_PROCESS};
 
 use memmap2::MmapOptions;
 use zerocopy::LayoutVerified;
@@ -66,6 +72,17 @@ fn main() {
         .into_ref();
 
     let show_information = info.show_information;
+    let show_console = info.show_console;
+
+    #[cfg(not(windows))]
+    let console_attached = false;
+    #[cfg(windows)]
+    let mut console_attached = false;
+    #[cfg(windows)]
+    if show_console == 2 || (show_console == 0 && show_information == 2) {
+        console_attached = unsafe { AttachConsole(ATTACH_PARENT_PROCESS) != 0 };
+    }
+
     if show_information >= 1 {
         println!(
             "{} {}{}",
@@ -110,6 +127,10 @@ fn main() {
     if show_information >= 2 {
         println!();
         println!("version: {}", version);
+        println!(
+            "show console: {} (attached: {})",
+            show_console, console_attached
+        );
     }
 
     let unpack_root = match info.unpack_target {
@@ -209,6 +230,10 @@ fn main() {
         println!("running...");
     }
 
+    if console_attached && show_console == 0 {
+        let _ = std::io::stdout().flush();
+    }
+
     let mut command = Command::new(run_path);
     command.args(baked_arguments);
     command.args(forwarded_arguments);
@@ -222,13 +247,19 @@ fn main() {
     }
     #[cfg(not(any(unix, target_os = "redox")))]
     {
+        if show_console == 0 || (show_console == 2 && !console_attached) {
+            command.stdout(Stdio::null());
+            command.stderr(Stdio::null());
+            command.stdin(Stdio::null());
+        }
         let mut child = command
             .spawn()
             .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
-        let result = child
-            .wait()
-            .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
-
-        std::process::exit(result.code().unwrap_or(0))
+        if show_console == 1 || (show_console == 2 && console_attached) {
+            let result = child
+                .wait()
+                .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
+            std::process::exit(result.code().unwrap_or(0))
+        }
     }
 }

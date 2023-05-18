@@ -174,11 +174,18 @@ pub fn get_show_information(show_information: &str) -> u8 {
     }
 }
 
-pub fn get_show_console(show_console: &str, runner_name: &str) -> bool {
+pub fn get_show_console(show_console: &str, runner_name: &str) -> u8 {
     match show_console.to_lowercase().as_str() {
-        "auto" => !runner_name.contains("windows"),
-        "always" => true,
-        "never" => false,
+        "auto" => {
+            if runner_name.contains("windows") {
+                0
+            } else {
+                1
+            }
+        }
+        "never" => 0,
+        "always" => 1,
+        "attach" => 2,
         _ => {
             println!(
                 "{}: {}",

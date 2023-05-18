@@ -50,7 +50,7 @@ pub struct Args {
     /// Information output details (title, verbose, none)
     #[arg(short = 'i', long, default_value = "title")]
     show_information: String,
-    /// Show or attach to a console window (auto, always, never)
+    /// Show or attach to a console window (auto, always, never, attach)
     #[arg(short = 'n', long, default_value = "auto")]
     console:          String,
     /// Set the current working directory of the target to the unpack directory
@@ -161,7 +161,7 @@ fn main() {
 
         let decompressed = (|| -> Result<Vec<u8>, Box<dyn Error>> {
             let mut runner_image = Image::parse(&decompressed)?;
-            runner_image.set_subsystem(if show_console { 3 } else { 2 });
+            runner_image.set_subsystem(if show_console == 1 { 3 } else { 2 });
             Ok(runner_image.data().to_owned())
         })()
         .unwrap_or_else(|error| {
@@ -187,7 +187,7 @@ fn main() {
                 .cloned()
                 .unwrap_or_default();
             if args.console == "auto" {
-                show_console = command_image.subsystem() == 3;
+                show_console = if command_image.subsystem() == 3 { 1 } else { 0 };
                 runner_image.set_subsystem(command_image.subsystem());
             }
             runner_image.set_resource_directory(command_resources)?;
@@ -274,7 +274,7 @@ fn main() {
 
     let info = StarterInfo {
         signature: [0x50, 0x45, 0x33, 0x44, 0x41, 0x54, 0x41, 0x00],
-        show_console: show_console.into(),
+        show_console,
         current_dir: args.current_dir.into(),
         verification,
         show_information,

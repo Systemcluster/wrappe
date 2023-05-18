@@ -63,7 +63,7 @@ Options:
   -i, --show-information <SHOW_INFORMATION>
             Information output details (title, verbose, none) [default: title]
   -n, --console <CONSOLE>
-            Show or attach to a console window (auto, always, never) [default: auto]
+            Show or attach to a console window (auto, always, never, attach) [default: auto]
   -w, --current-dir
             Set the current working directory of the target to the unpack directory
   -l, --list-runners
@@ -138,15 +138,16 @@ It defaults to `title`. Error information is always shown when applicable.
 
 This option controls if the runner should attach to a console or if a console window should be opened when launching a Windows application from the Windows explorer. Accepted values are:
 
-* `auto`: Select the console behavior based on the subsystem of the input executable if available. If not available, it will be disabled for Windows runners, and enabled for all other runners.
-* `always` Always attach to or open a console.
-* `never`: Never open or attach to a console.
+* `auto`: Select the console behavior based on the subsystem of the input executable if available. If not available, it will fall back to `never` for Windows runners, and `always` for all other runners.
+* `always` Always attach to or open a console. The runner will block the console until the packed executable exits.
+* `never`: Never open or attach to a console. The runner will immediately exit after launching the packed executable.
+* `attach`: Never open a new console window, but attach to an existing console if available. The runner will unblock the console immediately, but output will still be shown.
 
-It defaults to `auto`. This option currently only affects Windows runners, other runners will always attach to a console if available.
+It defaults to `auto`. This option currently only affects Windows runners, other runners will always attach to a console if available. This option will also not prevent packed Windows command line applications from opening a console on their own when launched from the Windows explorer.
 
 #### current-dir
 
-By default the working directory of the unpacked executable is set to the working directory of the runner executable. This flag changes the working directory to the unpack directory.
+By default the working directory of the packed executable is set to the working directory of the runner executable. This flag changes the working directory to the unpack directory.
 
 ## Compilation
 
