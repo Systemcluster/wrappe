@@ -192,11 +192,11 @@ fn main() {
         println!("forwarded arguments: {:?}", forwarded_arguments);
     }
 
-    let current_dir = std::env::current_dir().unwrap();
+    let launch_dir = std::env::current_dir().unwrap();
     let current_dir = if info.current_dir == 1 {
         &unpack_dir
     } else {
-        &current_dir
+        &launch_dir
     };
     if show_information >= 2 {
         println!("current dir: {}", current_dir.display());
@@ -212,6 +212,8 @@ fn main() {
     let mut command = Command::new(run_path);
     command.args(baked_arguments);
     command.args(forwarded_arguments);
+    command.env("WRAPPE_UNPACK_DIR", unpack_dir.as_os_str());
+    command.env("WRAPPE_LAUNCH_DIR", launch_dir.as_os_str());
     command.current_dir(current_dir);
     #[cfg(any(unix, target_os = "redox"))]
     {

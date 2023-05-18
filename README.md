@@ -34,6 +34,8 @@ Running `wrappe` requires specifying the `input` directory, the `command` to lau
 
 Additional arguments for the packed executable can be specified after `--` and will automatically be passed to the command when launched.
 
+If the packed executable needs to access files inside its working directory by relative path, use the `--current-dir` option to set the working directory to the unpack directory. The `WRAPPE_UNPACK_DIR` and `WRAPPE_LAUNCH_DIR` environment variables will always be set for the command allowing access to either location.
+
 ```text
 wrappe [OPTIONS] <input> <command> <output> [-- <ARGUMENTS>...]
 
