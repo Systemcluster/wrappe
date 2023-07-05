@@ -37,7 +37,7 @@ Additional arguments for the packed executable can be specified after `--` and w
 If the packed executable needs to access files inside its working directory by relative path, use the `--current-dir` option to set the working directory to the unpack directory. The `WRAPPE_UNPACK_DIR` and `WRAPPE_LAUNCH_DIR` environment variables will always be set for the command allowing access to either location.
 
 ```text
-wrappe [OPTIONS] <input> <command> <output> [-- <ARGUMENTS>...]
+wrappe [OPTIONS] <input> <command> [output] [-- <ARGUMENTS>...]
 
 Arguments:
     <input>         Path to the input directory

@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    ffi::OsString,
+    path::{Path, PathBuf},
+};
 
 use console::style;
 use rand::{
@@ -207,7 +210,7 @@ pub fn get_source(source: &Path) -> PathBuf {
     let source = std::fs::canonicalize(&source).unwrap_or_else(|_| {
         println!(
             "{}: {}",
-            style("input path is not a directory").red(),
+            style("input path does not exist").red(),
             source.display()
         );
         std::process::exit(-1);
@@ -223,7 +226,24 @@ pub fn get_source(source: &Path) -> PathBuf {
     source
 }
 
-pub fn get_output(output: &Path) -> PathBuf {
+pub fn get_output(output: Option<&Path>, command_path: &Path) -> PathBuf {
+    let output = output
+        .map(|path| path.as_os_str().to_owned())
+        .unwrap_or_else(|| {
+            let name = command_path
+                .file_name()
+                .unwrap_or_else(|| {
+                    println!(
+                        "{}",
+                        style("couldn't infer output path from the command path").red()
+                    );
+                    std::process::exit(-1);
+                })
+                .to_owned();
+            let mut prefix = OsString::from("packed-");
+            prefix.push(name);
+            prefix
+        });
     let output = Path::new(&std::env::current_dir().unwrap()).join(output);
     if !output.parent().map(|path| path.is_dir()).unwrap_or(false) {
         println!(
@@ -329,9 +349,8 @@ pub fn get_command_path(command: &Path, source: &Path) -> PathBuf {
     command.to_owned()
 }
 
-pub fn get_command(command: &Path, source: &Path) -> [u8; NAME_SIZE] {
-    let command = get_command_path(command, source);
-    let command = command
+pub fn get_command(command_path: &Path) -> [u8; NAME_SIZE] {
+    let command = command_path
         .to_str()
         .unwrap_or_else(|| {
             println!("{}", style("command path is not valid utf8").red());

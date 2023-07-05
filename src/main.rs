@@ -68,7 +68,7 @@ pub struct Args {
     command:          PathBuf,
     /// Path to or filename of the output executable
     #[arg(name = "output")]
-    output:           PathBuf,
+    output:           Option<PathBuf>,
     /// Command line arguments to pass to the executable
     #[arg(last = true)]
     arguments:        Vec<String>,
@@ -90,8 +90,9 @@ fn main() {
     let versioning = get_versioning(&args.versioning);
     let version = get_version(args.version_string.as_deref());
     let source = get_source(&args.input);
-    let output = get_output(&args.output);
-    let command = get_command(&args.command, &source);
+    let command_path = get_command_path(&args.command, &source);
+    let command = get_command(&command_path);
+    let output = get_output(args.output.as_deref(), &command_path);
     let unpack_directory = get_unpack_directory(args.unpack_directory.as_deref(), &source);
     let verification = get_verification(&args.verification);
     let show_information = get_show_information(&args.show_information);
