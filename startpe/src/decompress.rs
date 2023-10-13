@@ -12,7 +12,7 @@ use filetime::{set_file_times, set_symlink_file_times, FileTime};
 use fslock::LockFile;
 use rayon::prelude::*;
 use twox_hash::XxHash64;
-use zerocopy::LayoutVerified;
+use zerocopy::Ref;
 use zstd::stream::copy_decode;
 
 use crate::types::*;
@@ -54,7 +54,7 @@ pub fn decompress(
 ) -> bool {
     // read payload header sections
     let payload_header_start = mmap.len() - size_of::<PayloadHeader>();
-    let payload_header = LayoutVerified::<_, PayloadHeader>::new(&mmap[payload_header_start..])
+    let payload_header = Ref::<_, PayloadHeader>::new(&mmap[payload_header_start..])
         .expect("couldn't read payload header")
         .into_ref();
 
@@ -94,7 +94,7 @@ pub fn decompress(
             |mut directories, (i, section)| {
                 let section_start = directory_sections_start + i * size_of::<DirectorySection>();
                 section_hasher.write(section);
-                let section = LayoutVerified::<_, DirectorySection>::new(
+                let section = Ref::<_, DirectorySection>::new(
                     &mmap[section_start..section_start + size_of::<DirectorySection>()],
                 )
                 .expect("couldn't read payload header")
@@ -121,7 +121,7 @@ pub fn decompress(
         .map(|(i, section)| {
             let section_start = file_sections_start + i * size_of::<FileSectionHeader>();
             section_hasher.write(section);
-            let section = LayoutVerified::<_, FileSectionHeader>::new(
+            let section = Ref::<_, FileSectionHeader>::new(
                 &mmap[section_start..section_start + size_of::<FileSectionHeader>()],
             )
             .expect("couldn't read payload header")
@@ -145,7 +145,7 @@ pub fn decompress(
         .map(|(i, section)| {
             let section_start = symlink_sections_start + i * size_of::<SymlinkSection>();
             section_hasher.write(section);
-            let section = LayoutVerified::<_, SymlinkSection>::new(
+            let section = Ref::<_, SymlinkSection>::new(
                 &mmap[section_start..section_start + size_of::<SymlinkSection>()],
             )
             .expect("couldn't read payload header")

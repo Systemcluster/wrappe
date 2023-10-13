@@ -18,7 +18,7 @@ use std::time::SystemTime;
 use winapi::um::wincon::{AttachConsole, ATTACH_PARENT_PROCESS};
 
 use memmap2::MmapOptions;
-use zerocopy::LayoutVerified;
+use zerocopy::Ref;
 
 mod types;
 use types::*;
@@ -67,7 +67,7 @@ fn main() {
     let end = mmap.len();
 
     let info_start = end - size_of::<StarterInfo>();
-    let info = LayoutVerified::<_, StarterInfo>::new(&mmap[info_start..end])
+    let info = Ref::<_, StarterInfo>::new(&mmap[info_start..end])
         .expect("couldn't read starter info")
         .into_ref();
 

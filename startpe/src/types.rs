@@ -1,11 +1,11 @@
-pub use zerocopy::FromBytes;
+pub use zerocopy::{FromBytes, FromZeroes};
 
 pub const WRAPPE_FORMAT: u8 = 201;
 pub const NAME_SIZE: usize = 128;
 pub const ARGS_SIZE: usize = 512;
 
 #[repr(C, packed)]
-#[derive(FromBytes)]
+#[derive(FromBytes, FromZeroes)]
 pub struct StarterInfo {
     pub signature:        [u8; 8],
     pub show_console:     u8,
@@ -22,7 +22,7 @@ pub struct StarterInfo {
 }
 
 #[repr(C, packed)]
-#[derive(FromBytes)]
+#[derive(FromBytes, FromZeroes)]
 pub struct PayloadHeader {
     pub kind:               u8,
     pub directory_sections: usize,
@@ -37,13 +37,13 @@ impl PayloadHeader {
     }
 }
 #[repr(C, packed)]
-#[derive(FromBytes)]
+#[derive(FromBytes, FromZeroes)]
 pub struct DirectorySection {
     pub name:   [u8; NAME_SIZE],
     pub parent: u32,
 }
 #[repr(C, packed)]
-#[derive(FromBytes)]
+#[derive(FromBytes, FromZeroes)]
 pub struct FileSectionHeader {
     pub position:              u64,
     pub size:                  u64,
@@ -59,7 +59,7 @@ pub struct FileSectionHeader {
     pub readonly:              u8,
 }
 #[repr(C, packed)]
-#[derive(FromBytes)]
+#[derive(FromBytes, FromZeroes)]
 pub struct SymlinkSection {
     pub name:                  [u8; NAME_SIZE],
     pub parent:                u32,

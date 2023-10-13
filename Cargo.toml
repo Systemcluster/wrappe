@@ -44,23 +44,23 @@ strip = "symbols"
 
 [dependencies]
 
-staticfilemap = { version = "0.6.1", default-features = false, features = ["zstd", "multithread"] }
+staticfilemap = { version = "0.7.0", default-features = false, features = ["zstd", "multithread"] }
 editpe = { version = "0.1.0", default-features = false }
 
-clap = { version = "4.3.10", features = ["std", "color", "suggestions", "derive", "unicode", "wrap_help"] }
-color-backtrace = "0.5.1"
+clap = { version = "4.4.8", features = ["std", "color", "suggestions", "derive", "unicode", "wrap_help"] }
+color-backtrace = "0.6.1"
 console = "0.15.7"
-indicatif = "0.17.5"
+indicatif = "0.17.7"
 jwalk = "0.8.1"
 num_cpus = "1.16.0"
 path-slash = "0.2.1"
 rand = "0.8.5"
-rayon = "1.7.0"
-sysinfo = "0.29.4"
+rayon = "1.8.0"
+sysinfo = "0.29.10"
 twox-hash = { version = "1.6.3", default-features = false }
-zerocopy = "0.6.1"
-zstd = { version = "0.12.3", default-features = false, features = ["arrays", "zstdmt"] }
+zerocopy = "0.7.26"
+zstd = { version = "0.13.0", default-features = false, features = ["arrays", "zstdmt"] }
 
 [build-dependencies]
 jwalk = "0.8.1"
-which = "4.4.0"
+which = "5.0.0"

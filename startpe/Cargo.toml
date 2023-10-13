@@ -18,13 +18,13 @@ path = "src/main.rs"
 [dependencies]
 
 dirs = "5.0.1"
-filetime = "0.2.21"
+filetime = "0.2.22"
 fslock = "0.2.1"
-memmap2 = "0.7.1"
-rayon = "1.7.0"
+memmap2 = "0.9.0"
+rayon = "1.8.0"
 twox-hash = { version = "1.6.3", default-features = false }
-zerocopy = "0.6.1"
-zstd = { version = "0.12.3", default-features = false, features = ["arrays"] }
+zerocopy = { version = "0.7.26", features = ["derive"] }
+zstd = { version = "0.13.0", default-features = false, features = ["arrays"] }
 
 [target.'cfg(windows)'.dependencies]
 
