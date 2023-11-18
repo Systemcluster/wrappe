@@ -1,6 +1,10 @@
 # wrappe
 
-Packer for creating self-contained single-binary applications from executables and directory trees.
+[![Release](https://img.shields.io/github/release/Systemcluster/wrappe)](https://github.com/Systemcluster/wrappe/releases)
+[![Crates.io](https://img.shields.io/crates/v/wrappe)](https://crates.io/crates/wrappe)
+[![Tests & Checks](https://img.shields.io/github/actions/workflow/status/Systemcluster/wrappe/tests.yml?label=tests%20%26%20checks)](https://github.com/Systemcluster/wrappe/actions/workflows/tests.yml)
+
+**Packer for creating self-contained single-binary applications from executables and directories.**
 
 ## Features
 
@@ -12,7 +16,7 @@ Packer for creating self-contained single-binary applications from executables a
 * Automatic transfer of resources including icons and version information
 * Platform support for Windows, macOS, Linux and more
 
-With wrappe you can bundle applications and their files into single executables. The packed files are automatically decompressed when the executable is launched. This allows distributing your application as a single file without the need for an installer, while resulting in a smaller file size and faster startup than many alternatives.
+With wrappe you can distribute your application and its files as a single executable without the need for an installer, while resulting in a smaller file size and faster startup than many alternatives.
 
 ## Usage
 
@@ -22,6 +26,8 @@ A snapshot build of the latest version can be found on the [release page](https:
 
 Snapshot builds contain runners for Windows (`x86_64-pc-windows-gnu`), macOS (`x86_64-apple-darwin` and `aarch64-apple-darwin`) and Linux (`x86_64-unknown-linux-musl`).
 
+Alternatively wrappe can be installed with `cargo`, see the [compilation](#compilation) section for more info on how to compile wrappe with additional runners.
+
 ### Example
 
 ```shell
@@ -30,11 +36,13 @@ wrappe --compression 16 dist dist/diogenes.exe packed.exe
 
 ### Details
 
-Running `wrappe` requires specifying the `input` directory, the `command` to launch, and the `output` filename. The input directory and all contained files and links will be packed into the output executable. The command must be an executable included in the input directory.
-
-Additional arguments for the packed executable can be specified after `--` and will automatically be passed to the command when launched.
+Run `wrappe` with an `input` directory, the `command` to launch and  the `output` filename to create a single-binary executable. The input directory and all contained files and links will be packed. The command must be an executable file within the input directory that should be launched after unpacking.
 
 If the packed executable needs to access files inside its working directory by relative path, use the `--current-dir` option to set the working directory to the unpack directory. The `WRAPPE_UNPACK_DIR` and `WRAPPE_LAUNCH_DIR` environment variables will always be set for the command allowing access to either location.
+
+Packed Windows executables will have their subsystem, icons and other resources automatically transferred to the output executable through [editpe](https://github.com/Systemcluster/editpe).
+
+Additional arguments for the packed executable can be specified after `--` and will automatically be passed to the command when launched.
 
 ```text
 wrappe [OPTIONS] <input> <command> [output] [-- <ARGUMENTS>...]
@@ -154,14 +162,17 @@ By default the working directory of the packed executable is set to the working 
 Compiling wrappe will also compile a runner for your current platform by default.
 
 ```shell
-cargo build --release
+cargo install wrappe
 ```
 
-To compile and include additional runners for other platforms, specify the desired [target triplets](https://doc.rust-lang.org/stable/rustc/targets/) in the `WRAPPE_TARGETS` environment variable.
+To compile and include additional runners for other platforms, specify the desired [target triples](https://doc.rust-lang.org/stable/rustc/platform-support.html) in the `WRAPPE_TARGETS` environment variable.
 
 ```shell
-WRAPPE_TARGETS=x86_64-unknown-linux-gnu;x86_64-pc-windows-msvc cargo build --release
+WRAPPE_TARGETS=x86_64-unknown-linux-gnu;x86_64-pc-windows-msvc cargo install wrappe
 ```
 
-Cross compilation of additional runners is performed through [cross](https://github.com/rust-embedded/cross) if available.
-To disable compilation through cross, set the `WRAPPE_NO_CROSS` environment variable to `true`.
+Target-specific [rustflags](https://doc.rust-lang.org/cargo/reference/config.html#buildrustflags) for runners can be configured through the `WRAPPE_TARGET_RUSTFLAGS_{target triple}` environment variable.
+
+Cross compilation of additional runners can be performed through [cross](https://github.com/rust-embedded/cross) when available and the `WRAPPE_USE_CROSS` environment variable is set to `true`.
+
+Some cross compilation targets require certain `AR`, `CC` and `CXX` environment variables to be set. Target-specific `AR`, `CC` and `CXX` can be configured through the `WRAPPE_TARGET_{AR|CC|CXX}_{target triple}` environment variables.

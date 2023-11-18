@@ -8,12 +8,22 @@ name = "startpe"
 publish = false
 repository = "https://github.com/Systemcluster/wrappe"
 version = "0.0.0"
-workspace = ".."
 
 [[bin]]
 
 name = "startpe"
 path = "src/main.rs"
+
+[profile.release]
+
+codegen-units = 1
+debug = false
+debug-assertions = false
+incremental = false
+lto = "fat"
+opt-level = 's'
+panic = "abort"
+strip = "symbols"
 
 [dependencies]
 

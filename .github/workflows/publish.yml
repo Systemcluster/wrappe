@@ -1,0 +1,205 @@
+name: Publish
+
+on:
+  workflow_run:
+    branches:
+      - master
+    workflows:
+      - Tests & Checks
+    types:
+      completed
+  workflow_dispatch:
+
+permissions: write-all
+
+jobs:
+
+  publish:
+
+    name: Publish
+    runs-on: ${{ matrix.os }}
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+
+    outputs:
+      tag: ${{ steps.publish.outputs.tag }}
+      version: ${{ steps.publish.outputs.version }}
+
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+        toolchain:
+          - stable
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          show-progress: false
+
+      - name: Set up Rust toolchain
+        uses: Systemcluster/actions@setup-rust-v0
+        with:
+          channel: ${{ matrix.toolchain }}
+          cache-key-job: true
+
+      - name: Prepare release
+        run: |
+          # Archive runner source
+          cd startpe && tar cf ../startpe.tar * && cd ..
+
+      - name: Publish crates
+        uses: Systemcluster/actions@release-crates-v0
+        id: publish
+        if: github.ref == 'refs/heads/master' && github.repository_owner == 'Systemcluster'
+        with:
+          crates-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          dry-run: ${{ !secrets.CARGO_REGISTRY_TOKEN }}
+          allow-dirty: true
+          tag-crate: wrappe
+
+  release:
+
+    name: Release
+    runs-on: ubuntu-latest
+    needs: publish
+    if: ${{ needs.publish.result == 'success' && needs.publish.outputs.tag != '' && needs.publish.outputs.version != '' }}
+
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+        toolchain:
+          - stable
+
+    env:
+      WRAPPE_TARGETS: "aarch64-apple-darwin;x86_64-apple-darwin;x86_64-pc-windows-gnu;x86_64-unknown-linux-musl"
+      MACOSX_DEPLOYMENT_TARGET: 12.3
+
+      WRAPPE_TARGET_CC_aarch64-apple-darwin: "aarch64-apple-darwin21.4-clang"
+      WRAPPE_TARGET_CXX_aarch64-apple-darwin: "aarch64-apple-darwin21.4-clang++"
+      WRAPPE_TARGET_AR_aarch64-apple-darwin: "aarch64-apple-darwin21.4-ar"
+      WRAPPE_TARGET_CC_x86_64-apple-darwin: "x86_64-apple-darwin21.4-clang"
+      WRAPPE_TARGET_CXX_x86_64-apple-darwin: "x86_64-apple-darwin21.4-clang++"
+      WRAPPE_TARGET_AR_x86_64-apple-darwin: "x86_64-apple-darwin21.4-ar"
+
+      WRAPPE_TARGET_STRIP_aarch64-apple-darwin: "aarch64-apple-darwin21.4-strip -s"
+      WRAPPE_TARGET_STRIP_x86_64-apple-darwin: "x86_64-apple-darwin21.4-strip -s"
+
+      WRAPPE_TARGET_RUSTFLAGS_aarch64-apple-darwin: "-Ctarget-cpu=apple-m1 -Ctarget-feature=+crt-static"
+      WRAPPE_TARGET_RUSTFLAGS_x86_64-apple-darwin: "-Ctarget-cpu=x86-64-v2 -Ctarget-feature=+crt-static"
+      WRAPPE_TARGET_RUSTFLAGS_x86_64-pc-windows-gnu: "-Ctarget-cpu=x86-64-v2 -Ctarget-feature=+crt-static"
+      WRAPPE_TARGET_RUSTFLAGS_x86_64-unknown-linux-musl: "-Ctarget-cpu=x86-64-v2 -Ctarget-feature=+crt-static"
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          show-progress: false
+
+      - name: Set up environment
+        run: sudo apt-get install mingw-w64 musl-tools patch libssl-dev lzma-dev libxml2-dev llvm-dev
+
+      - name: Set up macOS toolchain cache
+        uses: actions/cache/restore@v3
+        id: cache-osxcross
+        with:
+          path: |
+            ~/osxcross
+          key: ${{ runner.os }}-toolchain-osxcross-12.3
+          restore-keys: |
+            ${{ runner.os }}-toolchain-osxcross
+
+      - name: Build macOS toolchain
+        if: steps.cache-osxcross.outputs.cache-hit != 'true'
+        env:
+          OSX_VERSION_MIN: 12.3
+        run: |
+          # Build macOS toolchain
+          cd $HOME
+          [ -d "osxcross" ] || git clone https://github.com/tpoechtrager/osxcross
+          cd osxcross
+          [ -f "tarballs/MacOSX12.3.sdk.tar.xz" ] || wget -nc https://github.com/alexey-lysiuk/macos-sdk/releases/download/12.3/MacOSX12.3.tar.xz -O tarballs/MacOSX12.3.sdk.tar.xz
+          [ -f "target/bin/x86_64-apple-darwin21.4-clang" ] || UNATTENDED=yes ./build.sh
+
+      - name: Save macOS toolchain cache
+        if: steps.cache-osxcross.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v3
+        with:
+          path: |
+            ~/osxcross
+          key: ${{ runner.os }}-toolchain-osxcross-12.3
+
+      - name: Configure Rust toolchain
+        run: |
+          # Configure toolchain
+          cd $HOME
+          chmod -R 777 osxcross
+          chmod -R +x osxcross/target/bin
+          echo "$(pwd)/osxcross/target/bin" >> $GITHUB_PATH
+          mkdir -p .cargo
+          touch .cargo/config
+          echo '[target.aarch64-apple-darwin]' >> .cargo/config
+          echo 'linker = "aarch64-apple-darwin21.4-clang"' >> .cargo/config
+          echo 'ar = "aarch64-apple-darwin21.4-ar"' >> .cargo/config
+          echo 'rustflags = ["-Ctarget-cpu=apple-m1", "-Ctarget-feature=+crt-static"]' >> .cargo/config
+          echo '[target.x86_64-apple-darwin]' >> .cargo/config
+          echo 'linker = "x86_64-apple-darwin21.4-clang"' >> .cargo/config
+          echo 'ar = "x86_64-apple-darwin21.4-ar"' >> .cargo/config
+          echo 'rustflags = ["-Ctarget-cpu=x86-64-v2", "-Ctarget-feature=+crt-static"]' >> .cargo/config
+          echo '[target.x86_64-pc-windows-gnu]' >> .cargo/config
+          echo 'rustflags = ["-Ctarget-cpu=x86-64-v2", "-Ctarget-feature=+crt-static"]' >> .cargo/config
+          echo '[target.x86_64-unknown-linux-musl]' >> .cargo/config
+          echo 'rustflags = ["-Ctarget-cpu=x86-64-v2", "-Ctarget-feature=+crt-static"]' >> .cargo/config
+          ls osxcross/target/bin
+
+      - name: Set up Rust toolchain
+        uses: Systemcluster/actions@setup-rust-v0
+        with:
+          channel: ${{ matrix.toolchain }}
+          targets: ${{ env.WRAPPE_TARGETS }}
+          cache-key-job: true
+
+      - name: Build macOS ARM release
+        env:
+          CC: "aarch64-apple-darwin21.4-clang"
+          CXX: "aarch64-apple-darwin21.4-clang++"
+        run: cargo build --release --target aarch64-apple-darwin
+
+      - name: Build macOS x64 release
+        env:
+          CC: "x86_64-apple-darwin21.4-clang"
+          CXX: "x86_64-apple-darwin21.4-clang++"
+        run: cargo build --release --target x86_64-apple-darwin
+
+      - name: Build Windows x64 release
+        run: cargo build --release --target x86_64-pc-windows-gnu
+
+      - name: Build Linux x64 release
+        run: cargo build --release --target x86_64-unknown-linux-musl
+
+      - name: Collect executables
+        run: |
+          # Collect executables
+          mv target/x86_64-pc-windows-gnu/release/wrappe.exe wrappe.exe
+          mv target/x86_64-unknown-linux-musl/release/wrappe wrappe-linux
+          mv target/x86_64-apple-darwin/release/wrappe wrappe-macos
+          mv target/aarch64-apple-darwin/release/wrappe wrappe-macos-arm
+          chmod +x wrappe-linux
+          chmod +x wrappe-macos
+          chmod +x wrappe-macos-arm
+          aarch64-apple-darwin21.4-strip -S wrappe-macos-arm
+          x86_64-apple-darwin21.4-strip -S wrappe-macos
+
+      - name: Upload release
+        uses: Systemcluster/actions@release-github-v0
+        with:
+          tag: ${{ needs.publish.outputs.tag }}
+          name: ${{ needs.publish.outputs.version }}
+          files: |
+            wrappe.exe
+            wrappe-linux
+            wrappe-macos
+            wrappe-macos-arm

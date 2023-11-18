@@ -1,13 +1,19 @@
-use std::{env::var, path::PathBuf, process::Command, vec::Vec};
+use std::{
+    env::{var, vars},
+    fs::File,
+    path::{Path, PathBuf},
+    process::Command,
+    vec::Vec,
+};
 
 use jwalk::WalkDir;
+use tar::Archive;
 use which::which;
 
 
 const TARGETS_ENV: &str = "WRAPPE_TARGETS";
 const FILES_ENV: &str = "WRAPPE_FILES";
-const NO_CROSS_ENV: &str = "WRAPPE_NO_CROSS";
-const OSXCROSS_WORKAROUND_ENV: &str = "WRAPPE_OSXCROSS_WORKAROUND";
+const USE_CROSS_ENV: &str = "WRAPPE_USE_CROSS";
 const STARTER_NAME: &str = "startpe";
 
 
@@ -40,11 +46,10 @@ fn get_runner_targets() -> Vec<String> {
                 if matches.len() == 1 {
                     active_targets.push(matches[0].to_string());
                 } else {
-                    eprintln!(
+                    panic!(
                         "couldn't build for target {}, target does not exist",
                         &target
                     );
-                    std::process::exit(1);
                 }
             } else {
                 active_targets.push(target.to_string());
@@ -54,14 +59,13 @@ fn get_runner_targets() -> Vec<String> {
     active_targets
 }
 
-fn compile_runner(target: &str, out_dir: &str) -> bool {
+fn compile_runner(starter_dir: &Path, target: &str, out_dir: &str) -> bool {
+    eprintln!("compiling runner for target {}", &target);
     let profile = var("PROFILE").unwrap();
     let native_target = var("TARGET").unwrap();
     let cargo = PathBuf::from(var("CARGO").unwrap()).canonicalize().unwrap();
-    let no_cross = var(NO_CROSS_ENV) == Ok("true".into()) || var(NO_CROSS_ENV) == Ok("1".into());
-    let osxcross_workaround = var(OSXCROSS_WORKAROUND_ENV) == Ok("true".into())
-        || var(OSXCROSS_WORKAROUND_ENV) == Ok("1".into());
-    let mut command = if target == native_target || no_cross {
+    let use_cross = var(USE_CROSS_ENV) == Ok("true".into()) || var(USE_CROSS_ENV) == Ok("1".into());
+    let mut command = if target == native_target || !use_cross {
         Command::new(cargo)
     } else {
         Command::new(which("cross").unwrap_or(cargo))
@@ -69,31 +73,44 @@ fn compile_runner(target: &str, out_dir: &str) -> bool {
     if let Some(hash) = get_git_hash() {
         command.env("GIT_HASH", hash);
     }
-    let mut rustflags = var("RUSTFLAGS").unwrap_or_default();
-    if !rustflags.contains("-Ctarget-feature") && !rustflags.contains("-C target-feature") {
-        rustflags = [rustflags, "-Ctarget-feature=+crt-static".to_string()].join(" ");
-    }
-    if osxcross_workaround {
-        command.env("MACOSX_DEPLOYMENT_TARGET", "11.3");
-        if target.contains("apple") {
-            if target.contains("aarch") {
-                command.env("CC", "oa64-clang");
-                command.env("CXX", "oa64-clang++");
-                command.env("AR", "arm64-apple-darwin20.4-ar");
-            } else {
-                command.env("CC", "o64-clang");
-                command.env("CXX", "o64-clang++");
-                command.env("AR", "x86_64-apple-darwin20.4-ar");
-            }
-        } else {
-            command.env_remove("CC");
-            command.env_remove("CXX");
-            command.env_remove("AR");
+    for (env, _) in vars() {
+        if env.starts_with("CARGO") {
+            command.env_remove(&env);
+        }
+        if env.starts_with("RUSTC") {
+            command.env_remove(&env);
         }
     }
-    command.env("RUSTFLAGS", rustflags);
+    command.env_remove("HOST");
+    if target != native_target {
+        command.env_remove("CC");
+        command.env_remove("CXX");
+        command.env_remove("AR");
+    }
+    for set in &["CC", "CXX", "AR"] {
+        if let Ok(var) = var(&format!("WRAPPE_TARGET_{}_{}", set, target)) {
+            command.env(set, var);
+        }
+    }
+    let mut rustflags = None;
+    if target == native_target {
+        if let Ok(var) = var("RUSTFLAGS") {
+            rustflags = Some(var);
+        }
+    }
+    if let Ok(var) = var(format!("WRAPPE_TARGET_RUSTFLAGS_{}", target)) {
+        rustflags = Some(var);
+    }
+    if let Some(mut rustflags) = rustflags {
+        if !rustflags.contains("-Ctarget-feature") && !rustflags.contains("-C target-feature") {
+            rustflags = format!("{} -Ctarget-feature=+crt-static", rustflags);
+        }
+        command.env("RUSTFLAGS", rustflags);
+    } else {
+        command.env("RUSTFLAGS", "-Ctarget-feature=+crt-static");
+    }
     command
-        .current_dir(STARTER_NAME)
+        .current_dir(starter_dir)
         .arg("build")
         .arg("--target")
         .arg(target)
@@ -102,14 +119,54 @@ fn compile_runner(target: &str, out_dir: &str) -> bool {
     if profile == "release" {
         command.arg("--release");
     }
+    eprintln!("running {:?}", command);
     let status = command
         .status()
         .unwrap_or_else(|e| panic!("couldn't compile runner for target {}: {}", &target, e));
-
+    if status.success() {
+        if let Ok(var) = var(format!("WRAPPE_TARGET_STRIP_{}", target)) {
+            strip_runner(target, out_dir, &profile, &var);
+        }
+    }
     status.success()
 }
 
+fn strip_runner(target: &str, out_dir: &str, profile: &str, strip: &str) -> Option<()> {
+    eprintln!("stripping runner for target {} with {}", target, strip);
+    let (strip, args) = strip.split_once(' ').unwrap_or((strip, ""));
+    let strip = which(strip.trim())
+        .map_err(|e| {
+            eprintln!("couldn't find strip for target {}: {}", target, e);
+        })
+        .ok()?;
+    let args = args
+        .split(' ')
+        .map(|arg| arg.trim())
+        .filter(|arg| !arg.is_empty());
+    let mut command = Command::new(strip);
+    command.args(args).arg(format!(
+        "{}/{}/{}/{}{}",
+        out_dir,
+        target,
+        profile,
+        STARTER_NAME,
+        if target.contains("windows") {
+            ".exe"
+        } else {
+            ""
+        }
+    ));
+    let status = command
+        .status()
+        .map_err(|e| eprintln!("couldn't strip runner for target {}: {}", target, e))
+        .ok()?;
+    status.success().then_some(())
+}
+
 fn get_git_hash() -> Option<String> {
+    if !Path::new(".git").is_dir() {
+        return None;
+    }
     which("git").ok().and_then(|git| {
         Command::new(git)
             .args(["rev-parse", "--short", "HEAD"])
@@ -121,6 +178,25 @@ fn get_git_hash() -> Option<String> {
                     .ok()
             })
     })
+}
+
+fn unpack_starter(target: &str) -> PathBuf {
+    if PathBuf::from(STARTER_NAME).is_dir() {
+        return PathBuf::from(STARTER_NAME);
+    }
+    eprintln!("unpacking starter {}.tar", STARTER_NAME);
+    let tar_path = PathBuf::from(STARTER_NAME).with_extension("tar");
+    if !tar_path.is_file() {
+        panic!("couldn't find {}.tar", STARTER_NAME);
+    }
+    let tar = File::open(tar_path)
+        .unwrap_or_else(|err| panic!("couldn't open {}.tar: {}", STARTER_NAME, err));
+    let mut archive = Archive::new(tar);
+    let target_dir = PathBuf::from(target).join(STARTER_NAME);
+    archive
+        .unpack(&target_dir)
+        .unwrap_or_else(|err| panic!("couldn't unpack {}.tar: {}", STARTER_NAME, err));
+    target_dir
 }
 
 fn main() {
@@ -138,24 +214,22 @@ fn main() {
         );
     }
     println!("cargo:rerun-if-changed=.git/HEAD");
-    for entry in WalkDir::new(STARTER_NAME)
+    let out_dir = var("OUT_DIR").unwrap();
+    let starter_dir = unpack_starter(&out_dir);
+    for entry in WalkDir::new(&starter_dir)
         .into_iter()
         .filter_map(|e| e.ok())
     {
         println!("cargo:rerun-if-changed={}", entry.path().display());
     }
-    let osxcross_workaround = var(OSXCROSS_WORKAROUND_ENV) == Ok("true".into())
-        || var(OSXCROSS_WORKAROUND_ENV) == Ok("1".into());
-    if osxcross_workaround {
-        println!("cargo:rustc-env=MACOSX_DEPLOYMENT_TARGET=11.3");
+    if let Ok(macosx_target) = var("MACOSX_DEPLOYMENT_TARGET") {
+        println!("cargo:rustc-env=MACOSX_DEPLOYMENT_TARGET={}", macosx_target);
     }
-    let out_dir = var("OUT_DIR").unwrap();
     let active_targets = get_runner_targets();
     for target in &active_targets {
-        let status = compile_runner(target, &out_dir);
+        let status = compile_runner(&starter_dir, target, &out_dir);
         if !status {
-            eprintln!("couldn't build for target {}, build failed", &target);
-            std::process::exit(1);
+            panic!("couldn't build for target {}, build failed", target);
         }
     }
     let profile = var("PROFILE").unwrap();

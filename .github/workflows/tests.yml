@@ -2,58 +2,101 @@ name: Tests & Checks
 
 on:
   pull_request:
-    branches:
-      - "master"
     paths-ignore:
       - ".github/**"
       - "**/*.md"
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - ".github/**"
+      - "**/*.md"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: write
+  statuses: write
 
 jobs:
 
   checks:
 
     name: Checks
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+        toolchain:
+          - stable
+
+    env:
+      RUST_BACKTRACE: full
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v2
-
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: actions/checkout@v4
         with:
-          toolchain: nightly
-          profile: minimal
-          default: true
-          components: rustfmt, clippy
+          submodules: recursive
+          show-progress: false
 
-      - name: Update dependencies
-        run: |
-          cargo update
-
-      - name: Setup cache
-        uses: actions/cache@v2
+      - name: Set up Rust toolchain
+        uses: Systemcluster/actions@setup-rust-v0
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: cargo-nightly-${{ hashFiles('**/Cargo.lock') }}
+          channel: ${{ matrix.toolchain }}
+          components: clippy
+          cache-key-job: true
 
-      - name: Check build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-
-      - name: Check formatting
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+      - name: Check check
+        run: cargo check --workspace --all-features
 
       - name: Check clippy
-        uses: actions-rs/clippy-check@v1
+        run: cargo clippy --workspace --all-features
+
+      - name: Check build
+        run: cargo build --all-features --verbose
+
+      - name: Check output
+        run: |
+          target/debug/wrappe --version
+          target/debug/wrappe --list-runners
+          target/debug/wrappe target/debug/wrappe${{ runner.os == 'Windows' && '.exe' || '' }} target/debug/wrappe${{ runner.os == 'Windows' && '.exe' || '' }}
+
+  formatting:
+
+    name: Formatting
+    runs-on: ${{ matrix.os }}
+
+    if: github.event_name == 'pull_request'
+
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+        toolchain:
+          - nightly
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
         with:
-          name: Clippy
+          submodules: recursive
+          show-progress: false
+
+      - name: Set up Rust toolchain
+        uses: Systemcluster/actions@setup-rust-v0
+        with:
+          channel: ${{ matrix.toolchain }}
+          targets: x86_64-unknown-linux-musl
+          components: rustfmt
+          cache-key-job: true
+
+      - name: Check formatting
+        uses: mbrobbel/rustfmt-check@master
+        with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --workspace --all-features -- -D warnings

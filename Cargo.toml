@@ -4,12 +4,12 @@ authors = ["Christian Sdunek <me@systemcluster.me>"]
 build = "build.rs"
 categories = ["compression", "filesystem", "command-line-utilities"]
 keywords = ["compression", "binary", "executable", "packer", "filesystem"]
-description = "Packer for creating self-contained single-binary applications from executables and directory trees"
+description = "Packer for creating self-contained single-binary applications from executables and directories"
 edition = "2021"
 include = [
   "Cargo.toml",
   "src/**/*",
-  "startpe/**/*",
+  "startpe.tar",
   "build.rs",
   "LICENSE",
 ]
@@ -62,5 +62,7 @@ zerocopy = "0.7.26"
 zstd = { version = "0.13.0", default-features = false, features = ["arrays", "zstdmt"] }
 
 [build-dependencies]
+
 jwalk = "0.8.1"
 which = "5.0.0"
+tar = "0.4.40"
