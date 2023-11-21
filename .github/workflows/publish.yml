@@ -7,7 +7,7 @@ on:
     workflows:
       - Tests & Checks
     types:
-      completed
+      - completed
   workflow_dispatch:
 
 permissions: write-all
@@ -84,8 +84,7 @@ jobs:
       WRAPPE_TARGET_CXX_x86_64-apple-darwin: "x86_64-apple-darwin21.4-clang++"
       WRAPPE_TARGET_AR_x86_64-apple-darwin: "x86_64-apple-darwin21.4-ar"
 
-      WRAPPE_TARGET_STRIP_aarch64-apple-darwin: "aarch64-apple-darwin21.4-strip -s"
-      WRAPPE_TARGET_STRIP_x86_64-apple-darwin: "x86_64-apple-darwin21.4-strip -s"
+      WRAPPE_TARGET_STRIP_x86_64-apple-darwin: "x86_64-apple-darwin21.4-strip -S"
 
       WRAPPE_TARGET_RUSTFLAGS_aarch64-apple-darwin: "-Ctarget-cpu=apple-m1 -Ctarget-feature=+crt-static"
       WRAPPE_TARGET_RUSTFLAGS_x86_64-apple-darwin: "-Ctarget-cpu=x86-64-v2 -Ctarget-feature=+crt-static"
@@ -190,7 +189,6 @@ jobs:
           chmod +x wrappe-linux
           chmod +x wrappe-macos
           chmod +x wrappe-macos-arm
-          aarch64-apple-darwin21.4-strip -S wrappe-macos-arm
           x86_64-apple-darwin21.4-strip -S wrappe-macos
 
       - name: Upload release
