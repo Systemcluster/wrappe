@@ -66,14 +66,16 @@ pub fn copy_encode<R: Read, W: Write>(
 pub fn compress<
     T: AsRef<Path>,
     W: Write + Seek + Sync + Send,
+    X: AsRef<Path>,
     P: Fn() + Sync + Send,
     E: Fn(&str) + Sync + Send,
     I: Fn(&str) + Sync + Send,
 >(
-    source: T, target: &mut W, compression: u32, progress_callback: P, error_callback: E,
-    info_callback: I,
+    source: T, target: &mut W, exclude: X, compression: u32, progress_callback: P,
+    error_callback: E, info_callback: I,
 ) -> (u64, u64, u64) {
     let source: &Path = source.as_ref();
+    let exclude: &Path = exclude.as_ref();
 
     let num_cpus = num_cpus::get() as u64;
     let system = System::new_with_specifics(sysinfo::RefreshKind::new().with_memory());
@@ -112,6 +114,10 @@ pub fn compress<
                 return None;
             }
             let entry = entry.path();
+            if entry == exclude {
+                error_callback(&format!("skipping excluded file: {}", entry.display()));
+                return None;
+            }
             let entry = entry.strip_prefix(source).ok()?;
 
             if entry.file_name()?.len() > NAME_SIZE {
@@ -170,6 +176,10 @@ pub fn compress<
                 return None;
             }
             let entry = entry.path();
+            if entry == exclude {
+                error_callback(&format!("skipping excluded file: {}", entry.display()));
+                return None;
+            }
 
             if entry.file_name()?.len() > NAME_SIZE {
                 error_callback(&format!(
@@ -359,6 +369,10 @@ pub fn compress<
                 return None;
             }
             let entry = entry.path();
+            if entry == exclude {
+                error_callback(&format!("skipping excluded file: {}", entry.display()));
+                return None;
+            }
 
             if entry.file_name()?.len() > NAME_SIZE {
                 error_callback(&format!(

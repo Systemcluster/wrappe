@@ -100,6 +100,14 @@ fn main() {
 
     let mut show_console = get_show_console(&args.console, runner_name);
 
+    if output == source {
+        println!(
+            "{}: {}",
+            style("output file can't be the input file").red(),
+            output.display()
+        );
+        std::process::exit(-1);
+    }
     let file = File::create(&output).unwrap_or_else(|_| {
         println!(
             "{}: {}",
@@ -226,13 +234,14 @@ fn main() {
     let (compressed, read, written) = compress(
         &source,
         &mut writer,
+        &output,
         args.compression,
         || {
             bar_progress.inc(1);
         },
         |message| {
             bar_progress.inc(1);
-            bar_progress.println(format!("      {}{}", Emoji("⚠ ", ""), style(message).red()));
+            bar_progress.println(format!("      {}{}", Emoji("⚠️ ", ""), style(message).red()));
         },
         |message| {
             bar_progress.set_message(format!("{}", style(message).blue().bright()));
@@ -304,7 +313,7 @@ fn main() {
         set_permissions(&output, PermissionsExt::from_mode(mode | 0o111)).unwrap_or_else(|e| {
             eprintln!(
                 "      {} failed to set permissions for {}: {}",
-                Emoji("⚠ ", ""),
+                Emoji("⚠️ ", ""),
                 output.display(),
                 e
             )
