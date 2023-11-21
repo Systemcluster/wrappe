@@ -118,19 +118,21 @@ fn main() {
         std::process::exit(-1);
     });
 
+    let canonical_current_dir = std::fs::canonicalize(std::env::current_dir().unwrap()).unwrap();
+    let relative_source = source
+        .strip_prefix(&canonical_current_dir)
+        .unwrap_or(&source);
+    let relative_source = if relative_source.components().count() == 0 {
+        &canonical_current_dir
+    } else {
+        relative_source
+    };
     let count = if source.is_dir() {
         println!(
             "{} {}counting contents of {}…",
             style("[1/4]").bold().dim(),
             Emoji("🔍 ", ""),
-            style(
-                &source
-                    .strip_prefix(std::fs::canonicalize(std::env::current_dir().unwrap()).unwrap())
-                    .unwrap_or(&source)
-                    .display()
-            )
-            .blue()
-            .bright()
+            style(relative_source.display()).blue().bright()
         );
         WalkDir::new(&source).skip_hidden(false).into_iter().count() as u64 - 1
     } else {
@@ -138,14 +140,7 @@ fn main() {
             "{} {}checking {}…",
             style("[1/4]").bold().dim(),
             Emoji("🔍 ", ""),
-            style(
-                &source
-                    .strip_prefix(std::fs::canonicalize(std::env::current_dir().unwrap()).unwrap())
-                    .unwrap_or(&source)
-                    .display()
-            )
-            .blue()
-            .bright()
+            style(relative_source.display()).blue().bright()
         );
         1
     };
@@ -156,7 +151,7 @@ fn main() {
         Emoji("📃 ", ""),
         style(
             &output
-                .strip_prefix(std::fs::canonicalize(std::env::current_dir().unwrap()).unwrap())
+                .strip_prefix(&canonical_current_dir)
                 .unwrap_or(&output)
                 .display()
         )
@@ -177,7 +172,7 @@ fn main() {
         .unwrap_or_else(|error| {
             println!(
                 "      {}{} {}",
-                Emoji("⚠️ ", ""),
+                Emoji("❗ ", ""),
                 style("failed to set subsystem for runner:").yellow(),
                 style(error).yellow()
             );
@@ -206,7 +201,7 @@ fn main() {
         .unwrap_or_else(|error| {
             println!(
                 "      {}{} {}",
-                Emoji("⚠️ ", ""),
+                Emoji("❗ ", ""),
                 style("failed to copy resources to runner:").yellow(),
                 style(error).yellow()
             );
@@ -242,7 +237,11 @@ fn main() {
         },
         |message| {
             bar_progress.inc(1);
-            bar_progress.println(format!("      {}{}", Emoji("⚠️ ", ""), style(message).red()));
+            bar_progress.println(format!(
+                "      {}{}",
+                Emoji("❗ ", ""),
+                style(message).red()
+            ));
         },
         |message| {
             bar_progress.set_message(format!("{}", style(message).blue().bright()));
@@ -314,7 +313,7 @@ fn main() {
         set_permissions(&output, PermissionsExt::from_mode(mode | 0o111)).unwrap_or_else(|e| {
             eprintln!(
                 "      {} failed to set permissions for {}: {}",
-                Emoji("⚠️ ", ""),
+                Emoji("❗ ", ""),
                 output.display(),
                 e
             )
