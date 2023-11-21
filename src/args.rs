@@ -205,6 +205,28 @@ pub fn get_show_console(show_console: &str, runner_name: &str) -> u8 {
     }
 }
 
+pub fn get_current_dir(current_dir: &str) -> u8 {
+    match current_dir.to_lowercase().as_str() {
+        "inherit" => 0,
+        "unpack" => 1,
+        "runner" => 2,
+        "command" => 3,
+        _ => {
+            println!(
+                "{}: {}",
+                style("not a valid current directory option").red(),
+                style(current_dir).red(),
+            );
+            println!(
+                "{}: inherit {}, directory, runner, command",
+                style("available current directory options").blue().bright(),
+                style("(default)").bold().dim()
+            );
+            std::process::exit(-1);
+        }
+    }
+}
+
 pub fn get_source(source: &Path) -> PathBuf {
     let source = Path::new(&std::env::current_dir().unwrap()).join(source);
     let source = std::fs::canonicalize(&source).unwrap_or_else(|_| {

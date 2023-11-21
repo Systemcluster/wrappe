@@ -53,9 +53,9 @@ pub struct Args {
     /// Show or attach to a console window (auto, always, never, attach)
     #[arg(short = 'n', long, default_value = "auto")]
     console:          String,
-    /// Set the current working directory of the target to the unpack directory
-    #[arg(short = 'w', long)]
-    current_dir:      bool,
+    /// Set the working directory of the command (inherit, unpack, runner, command)
+    #[arg(short = 'w', long, default_value = "inherit")]
+    current_dir:      String,
     /// Print available runners
     #[arg(short = 'l', long)]
     #[allow(dead_code)]
@@ -97,6 +97,7 @@ fn main() {
     let verification = get_verification(&args.verification);
     let show_information = get_show_information(&args.show_information);
     let arguments = get_arguments(&args.arguments);
+    let current_dir = get_current_dir(&args.current_dir);
 
     let mut show_console = get_show_console(&args.console, runner_name);
 
@@ -285,7 +286,7 @@ fn main() {
     let info = StarterInfo {
         signature: [0x50, 0x45, 0x33, 0x44, 0x41, 0x54, 0x41, 0x00],
         show_console,
-        current_dir: args.current_dir.into(),
+        current_dir,
         verification,
         show_information,
         uid: version.as_bytes().try_into().unwrap(),

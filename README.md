@@ -38,7 +38,7 @@ wrappe --compression 16 dist dist/diogenes.exe packed.exe
 
 Run `wrappe` with an `input` directory, the `command` to launch and  the `output` filename to create a single-binary executable. The input directory and all contained files and links will be packed. The command must be an executable file within the input directory that should be launched after unpacking.
 
-If the packed executable needs to access files inside its working directory by relative path, use the `--current-dir` option to set the working directory to the unpack directory. The `WRAPPE_UNPACK_DIR` and `WRAPPE_LAUNCH_DIR` environment variables will always be set for the command allowing access to either location.
+If the packed executable needs to access packed files by relative path and expects a certain working directory, use the [`--current-dir`](#current-dir) option to set it to its parent directory or the unpack directory. The `WRAPPE_UNPACK_DIR` and `WRAPPE_LAUNCH_DIR` environment variables will always be set for the command with the paths to the unpack directory and the inherited working directory.
 
 Packed Windows executables will have their subsystem, icons and other resources automatically transferred to the output executable through [editpe](https://github.com/Systemcluster/editpe).
 
@@ -73,7 +73,7 @@ Options:
   -n, --console <CONSOLE>
             Show or attach to a console window (auto, always, never, attach) [default: auto]
   -w, --current-dir
-            Set the current working directory of the target to the unpack directory
+            Set the working directory of the command (inherit, unpack, runner, command) [default: inherit]
   -l, --list-runners
             Print available runners
   -h, --help
@@ -155,7 +155,14 @@ It defaults to `auto`. This option currently only affects Windows runners, other
 
 #### current-dir
 
-By default the working directory of the packed executable is set to the working directory of the runner executable. This flag changes the working directory to the unpack directory.
+This option changes the working directory of the packed executable. Accepted values are:
+
+* `inherit`: The working directory will be inherited from the runner. This is usually the directory containing the runner or the directory from which the runner was launched.
+* `unpack`: The working directory will be set to the unpack directory. This is the top-level directory of the unpacked payload.
+* `runner`: The working directory will be set to the directory containing the runner, with all symbolic links resolved.
+* `command`: The working directory will be set to the directory containing the unpacked executable. This will either be the unpack directory or a subdirectory within the unpacked payload.
+
+It defaults to `inherit`.
 
 ## Compilation
 

@@ -214,10 +214,12 @@ fn main() {
     }
 
     let launch_dir = std::env::current_dir().unwrap();
-    let current_dir = if info.current_dir == 1 {
-        &unpack_dir
-    } else {
-        &launch_dir
+    let current_dir = match info.current_dir {
+        0 => &launch_dir,
+        1 => &unpack_dir,
+        2 => exe.parent().unwrap(),
+        3 => run_path.parent().unwrap(),
+        _ => panic!("invalid current directory"),
     };
     if show_information >= 2 {
         println!("current dir: {}", current_dir.display());
