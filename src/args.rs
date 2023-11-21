@@ -81,7 +81,7 @@ pub fn get_unpack_target(directory: &str) -> u8 {
             println!(
                 "{}: temp {}, local, cwd",
                 style("available target directories").blue().bright(),
-                style("(default)").bold().black()
+                style("(default)").bold().dim()
             );
             std::process::exit(-1);
         }
@@ -103,7 +103,7 @@ pub fn get_versioning(versioning: &str) -> u8 {
             println!(
                 "{}: sidebyside {}, replace",
                 style("available versioning strategies").blue().bright(),
-                style("(default)").bold().black()
+                style("(default)").bold().dim()
             );
             std::process::exit(-1);
         }
@@ -146,7 +146,7 @@ pub fn get_verification(verification: &str) -> u8 {
             println!(
                 "{}: none, existence {}, checksum",
                 style("available verification options").blue().bright(),
-                style("(default)").bold().black()
+                style("(default)").bold().dim()
             );
             std::process::exit(-1);
         }
@@ -170,7 +170,7 @@ pub fn get_show_information(show_information: &str) -> u8 {
                 style("available information details options")
                     .blue()
                     .bright(),
-                style("(default)").bold().black()
+                style("(default)").bold().dim()
             );
             std::process::exit(-1);
         }
@@ -198,7 +198,7 @@ pub fn get_show_console(show_console: &str, runner_name: &str) -> u8 {
             println!(
                 "{}: auto {}, always, never",
                 style("available console options").blue().bright(),
-                style("(default)").bold().black()
+                style("(default)").bold().dim()
             );
             std::process::exit(-1);
         }

@@ -120,7 +120,7 @@ fn main() {
     let count = if source.is_dir() {
         println!(
             "{} {}counting contents of {}…",
-            style("[1/4]").bold().black(),
+            style("[1/4]").bold().dim(),
             Emoji("🔍 ", ""),
             style(
                 &source
@@ -135,7 +135,7 @@ fn main() {
     } else {
         println!(
             "{} {}checking {}…",
-            style("[1/4]").bold().black(),
+            style("[1/4]").bold().dim(),
             Emoji("🔍 ", ""),
             style(
                 &source
@@ -151,7 +151,7 @@ fn main() {
 
     println!(
         "{} {}writing runner {} for target {}…",
-        style("[2/4]").bold().black(),
+        style("[2/4]").bold().dim(),
         Emoji("📃 ", ""),
         style(
             &output
@@ -219,7 +219,7 @@ fn main() {
 
     println!(
         "{} {}compressing {} files and directories…",
-        style("[3/4]").bold().black(),
+        style("[3/4]").bold().dim(),
         Emoji("🚚 ", ""),
         style(count).magenta(),
     );
@@ -278,7 +278,7 @@ fn main() {
 
     println!(
         "{} {}writing startup configuration…",
-        style("[4/4]").bold().black(),
+        style("[4/4]").bold().dim(),
         Emoji("📃 ", "")
     );
 
