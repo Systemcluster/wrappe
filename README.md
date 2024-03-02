@@ -31,56 +31,57 @@ Alternatively wrappe can be installed with `cargo`, see the [compilation](#compi
 ### Example
 
 ```shell
-wrappe --compression 16 dist dist/diogenes.exe packed.exe
+wrappe --compression 16 app app/diogenes.exe packed.exe
 ```
 
 ### Details
 
-Run `wrappe` with an `input` directory, the `command` to launch and  the `output` filename to create a single-binary executable. The input directory and all contained files and links will be packed. The command must be an executable file within the input directory that should be launched after unpacking.
-
-If the packed executable needs to access packed files by relative path and expects a certain working directory, use the [`--current-dir`](#current-dir) option to set it to its parent directory or the unpack directory. The `WRAPPE_UNPACK_DIR` and `WRAPPE_LAUNCH_DIR` environment variables will always be set for the command with the paths to the unpack directory and the inherited working directory.
-
-Packed Windows executables will have their subsystem, icons and other resources automatically transferred to the output executable through [editpe](https://github.com/Systemcluster/editpe).
-
-Additional arguments for the packed executable can be specified after `--` and will automatically be passed to the command when launched.
+Run `wrappe` with an `input` directory, the `command` to launch and  the `output` filename to create a single-binary executable.
+The input directory and all contained files and links will be packed. The command must be an executable file within the input directory that should be launched after unpacking.
 
 ```text
 wrappe [OPTIONS] <input> <command> [output] [-- <ARGUMENTS>...]
 
 Arguments:
-    <input>         Path to the input directory
-    <command>       Path to the executable to start after unpacking
-    <output>        Path to or filename of the output executable
-    [ARGUMENTS]...  Command line arguments to pass to the executable
+  <input>         Path to the input directory
+  <command>       Path to the executable to start after unpacking
+  [output]        Path to or filename of the output executable
+  [ARGUMENTS]...  Command line arguments to pass to the executable
 
 Options:
   -r, --runner <RUNNER>
-            Platform to pack for (see --list-runners for available options) [default: native]
+        Platform to pack for (see --list-runners for available options) [default: native]
   -c, --compression <COMPRESSION>
-            Zstd compression level (0-22) [default: 8]
+        Zstd compression level (0-22) [default: 8]
   -t, --unpack-target <UNPACK_TARGET>
-            Unpack directory target (temp, local, cwd) [default: temp]
+        Unpack directory target (temp, local, cwd) [default: temp]
   -d, --unpack-directory <UNPACK_DIRECTORY>
-            Unpack directory name [default: inferred from input directory]
+        Unpack directory name [default: inferred from input directory]
   -v, --versioning <VERSIONING>
-            Versioning strategy (sidebyside, replace, none) [default: sidebyside]
+        Versioning strategy (sidebyside, replace, none) [default: sidebyside]
   -e, --verification <VERIFICATION>
-            Verification of existing unpacked data (existence, checksum, none) [default: existence]
-  -s, --version-string <SPECIFIER>
-            Version string override [default: randomly generated]
+        Verification of existing unpacked data (existence, checksum, none) [default: existence]
+  -s, --version-string <VERSION_STRING>
+        Version string override [default: randomly generated]
   -i, --show-information <SHOW_INFORMATION>
-            Information output details (title, verbose, none) [default: title]
+        Information output details (title, verbose, none) [default: title]
   -n, --console <CONSOLE>
-            Show or attach to a console window (auto, always, never, attach) [default: auto]
-  -w, --current-dir
-            Set the working directory of the command (inherit, unpack, runner, command) [default: inherit]
+        Show or attach to a console window (auto, always, never, attach) [default: auto]
+  -w, --current-dir <CURRENT_DIR>
+        Working directory of the command (inherit, unpack, runner, command) [default: inherit]
   -l, --list-runners
-            Print available runners
+        Print available runners
   -h, --help
-            Print help
+        Print help
   -V, --version
-            Print version
+        Print version
 ```
+
+Additional arguments for the packed executable can be specified after `--` and will automatically be passed to the command when launched.
+
+If the packed executable needs to access packed files by relative path and expects a certain working directory, use the [`--current-dir`](#current-dir) option to set it to its parent directory or the unpack directory. The `WRAPPE_UNPACK_DIR` and `WRAPPE_LAUNCH_DIR` environment variables will always be set for the command with the paths to the unpack directory and the inherited working directory.
+
+Packed Windows executables will have their subsystem, icons and other resources automatically transferred to the output executable through [editpe](https://github.com/Systemcluster/editpe).
 
 ### Options
 
