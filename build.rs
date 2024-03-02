@@ -3,7 +3,6 @@ use std::{
     fs::File,
     path::{Path, PathBuf},
     process::Command,
-    vec::Vec,
 };
 
 use jwalk::WalkDir;

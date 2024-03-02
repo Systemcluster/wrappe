@@ -18,9 +18,8 @@ use rand::{
     thread_rng,
 };
 use rayon::prelude::*;
-use sysinfo::{System, SystemExt};
+use sysinfo::System;
 use twox_hash::XxHash64;
-use zerocopy::AsBytes;
 use zstd::Encoder;
 
 use crate::types::*;
@@ -78,7 +77,9 @@ pub fn compress<
     let exclude: &Path = exclude.as_ref();
 
     let num_cpus = num_cpus::get() as u64;
-    let system = System::new_with_specifics(sysinfo::RefreshKind::new().with_memory());
+    let system = System::new_with_specifics(
+        sysinfo::RefreshKind::new().with_memory(sysinfo::MemoryRefreshKind::new().with_ram()),
+    );
     let memory = system.total_memory();
     let in_memory_limit = memory / num_cpus * 1000;
 

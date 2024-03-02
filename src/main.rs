@@ -1,5 +1,4 @@
 use std::{
-    convert::TryInto,
     error::Error,
     fs::File,
     io::{BufWriter, Cursor, Write},
@@ -53,7 +52,7 @@ pub struct Args {
     /// Show or attach to a console window (auto, always, never, attach)
     #[arg(short = 'n', long, default_value = "auto")]
     console:          String,
-    /// Set the working directory of the command (inherit, unpack, runner, command)
+    /// Working directory of the command (inherit, unpack, runner, command)
     #[arg(short = 'w', long, default_value = "inherit")]
     current_dir:      String,
     /// Print available runners

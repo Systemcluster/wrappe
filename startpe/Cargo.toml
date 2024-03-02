@@ -28,12 +28,12 @@ strip = "symbols"
 [dependencies]
 
 dirs = "5.0.1"
-filetime = "0.2.22"
+filetime = "0.2.23"
 fslock = "0.2.1"
-memmap2 = "0.9.0"
-rayon = "1.8.0"
+memmap2 = "0.9.4"
+rayon = "1.9.0"
 twox-hash = { version = "1.6.3", default-features = false }
-zerocopy = { version = "0.7.26", features = ["derive"] }
+zerocopy = { version = "0.7.32", features = ["derive"] }
 zstd = { version = "0.13.0", default-features = false, features = ["arrays"] }
 
 [target.'cfg(windows)'.dependencies]
