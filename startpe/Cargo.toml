@@ -30,6 +30,7 @@ strip = "symbols"
 dirs = "5.0.1"
 filetime = "0.2.23"
 fslock = "0.2.1"
+memchr = "2.7.1"
 memmap2 = "0.9.4"
 rayon = "1.9.0"
 twox-hash = { version = "1.6.3", default-features = false }

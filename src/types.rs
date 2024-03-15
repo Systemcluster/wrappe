@@ -1,6 +1,7 @@
 pub use zerocopy::AsBytes;
 
 pub const WRAPPE_FORMAT: u8 = 201;
+pub const WRAPPE_SIGNATURE: [u8; 8] = [0x50, 0x45, 0x33, 0x44, 0x41, 0x54, 0x41, 0x00];
 pub const NAME_SIZE: usize = 128;
 pub const ARGS_SIZE: usize = 512;
 

@@ -17,6 +17,7 @@ use std::time::SystemTime;
 #[cfg(windows)]
 use winapi::um::wincon::{AttachConsole, ATTACH_PARENT_PROCESS};
 
+use memchr::memmem;
 use memmap2::MmapOptions;
 use zerocopy::Ref;
 
@@ -65,11 +66,35 @@ fn main() {
             .expect("couldn't memory map current executable")
     };
     let end = mmap.len();
+    if end < size_of::<StarterInfo>() {
+        panic!("file is too small ({} < {})", end, size_of::<StarterInfo>())
+    }
 
-    let info_start = end - size_of::<StarterInfo>();
-    let info = Ref::<_, StarterInfo>::new(&mmap[info_start..end])
+    let mut signature = Vec::with_capacity(8);
+    signature.extend_from_slice(&WRAPPE_SIGNATURE_1[..4]);
+    signature.extend_from_slice(&WRAPPE_SIGNATURE_2[..4]);
+
+    let mut info_start = end - size_of::<StarterInfo>();
+    if mmap[info_start..info_start + 8] != signature[..] {
+        if let Some(pos) = memmem::rfind(&mmap[..info_start], &signature) {
+            info_start = pos;
+        } else {
+            panic!("couldn't find starter info")
+        }
+    }
+
+    let info = Ref::<_, StarterInfo>::new(&mmap[info_start..info_start + size_of::<StarterInfo>()])
         .expect("couldn't read starter info")
         .into_ref();
+    if info.signature != signature[..] {
+        panic!("file signature is invalid")
+    }
+    if info.wrappe_format != WRAPPE_FORMAT {
+        panic!(
+            "runner version ({}) differs from wrapper version ({})",
+            WRAPPE_FORMAT, info.wrappe_format
+        );
+    }
 
     let show_information = info.show_information;
     let show_console = info.show_console;
@@ -91,16 +116,6 @@ fn main() {
             option_env!("GIT_HASH")
                 .map(|hash| format!(" ({})", hash))
                 .unwrap_or_default()
-        );
-    }
-
-    if info.signature != [0x50, 0x45, 0x33, 0x44, 0x41, 0x54, 0x41, 0x00] {
-        panic!("file signature is invalid");
-    }
-    if info.wrappe_format != WRAPPE_FORMAT {
-        panic!(
-            "runner version ({}) differs from wrapper version ({})",
-            WRAPPE_FORMAT, info.wrappe_format
         );
     }
 

@@ -282,7 +282,7 @@ fn main() {
     );
 
     let info = StarterInfo {
-        signature: [0x50, 0x45, 0x33, 0x44, 0x41, 0x54, 0x41, 0x00],
+        signature: WRAPPE_SIGNATURE,
         show_console,
         current_dir,
         verification,
