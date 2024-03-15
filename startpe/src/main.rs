@@ -36,21 +36,27 @@ use versioning::*;
 fn main() {
     set_hook(Box::<_>::new(move |panic| {
         if let Some(message) = panic.payload().downcast_ref::<&str>() {
-            eprintln!("{}", message);
+            eprintln!("error: {}", message);
         } else if let Some(message) = panic.payload().downcast_ref::<String>() {
-            eprintln!("{}", message);
+            eprintln!("error: {}", message);
         } else {
-            eprintln!("{}", panic);
+            eprintln!("error: {}", panic);
         }
         #[cfg(windows)]
-        if let Ok(mut file) = File::create(format!(
-            "error-{}.txt",
-            SystemTime::now()
+        {
+            let now = SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs()
-        )) {
-            let _ = writeln!(file, "{}", panic);
+                .unwrap_or_default();
+            if let Ok(mut file) = File::create(format!(
+                "error-{}-{}.txt",
+                now.as_secs(),
+                now.subsec_millis()
+            )) {
+                let _ = writeln!(file, "An error occurred while starting the application.");
+                let _ = writeln!(file, "Please report this error to the developers.");
+                let _ = writeln!(file);
+                let _ = writeln!(file, "{}", panic);
+            }
         }
     }));
 
