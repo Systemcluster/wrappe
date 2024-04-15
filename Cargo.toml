@@ -47,7 +47,7 @@ strip = "symbols"
 staticfilemap = { version = "0.7.0", default-features = false, features = ["zstd", "multithread"] }
 editpe = { version = "0.1.0", default-features = false }
 
-clap = { version = "4.5.3", features = ["std", "color", "suggestions", "derive", "unicode", "wrap_help"] }
+clap = { version = "4.5.4", features = ["std", "color", "suggestions", "derive", "unicode", "wrap_help"] }
 color-backtrace = "0.6.1"
 console = "0.15.8"
 indicatif = "0.17.8"
@@ -55,11 +55,11 @@ jwalk = "0.8.1"
 num_cpus = "1.16.0"
 path-slash = "0.2.1"
 rand = "0.8.5"
-rayon = "1.9.0"
-sysinfo = "0.30.7"
+rayon = "1.10.0"
+sysinfo = "0.30.10"
 twox-hash = { version = "1.6.3", default-features = false }
 zerocopy = "0.7.32"
-zstd = { version = "0.13.0", default-features = false, features = ["arrays", "zstdmt"] }
+zstd = { version = "0.13.1", default-features = false, features = ["zstdmt", "zdict_builder"] }
 
 [build-dependencies]
 

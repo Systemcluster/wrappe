@@ -2,7 +2,7 @@ use std::{
     env::temp_dir,
     fs::{read_link, remove_file, symlink_metadata, File},
     hash::Hasher,
-    io::{copy, Cursor, Read, Result, Seek, Write},
+    io::{copy, BufReader, Cursor, Read, Result, Seek, Write},
     path::Path,
     sync::{
         atomic::{AtomicU64, Ordering},
@@ -20,7 +20,7 @@ use rand::{
 use rayon::prelude::*;
 use sysinfo::System;
 use twox_hash::XxHash64;
-use zstd::Encoder;
+use zstd::{dict::EncoderDictionary, Encoder};
 
 use crate::types::*;
 
@@ -46,9 +46,13 @@ impl<R: Read, H: Hasher> Read for HashReader<R, H> {
 }
 
 pub fn copy_encode<R: Read, W: Write>(
-    mut source: R, destination: W, level: i32, threads: u32,
+    mut source: R, destination: W, level: i32, threads: u32, dict: Option<&EncoderDictionary>,
 ) -> Result<()> {
-    let mut encoder = Encoder::new(destination, level)?;
+    let mut encoder = if let Some(dict) = dict {
+        Encoder::with_prepared_dictionary(destination, dict)?
+    } else {
+        Encoder::new(destination, level)?
+    };
     encoder.multithread(threads)?;
     copy(&mut source, &mut encoder)?;
     encoder.finish()?;
@@ -58,20 +62,23 @@ pub fn copy_encode<R: Read, W: Write>(
 /// Compress the payload in `source` and write it into `target`.
 /// The data is written subsequently in the following order:
 /// - compressed file contents
+/// - compression dictionary
 /// - directory sections
 /// - file section headers
 /// - symlink sections
 /// - payload section header
+#[allow(clippy::too_many_arguments)]
 pub fn compress<
     T: AsRef<Path>,
     W: Write + Seek + Sync + Send,
     X: AsRef<Path>,
     P: Fn() + Sync + Send,
     E: Fn(&str) + Sync + Send,
+    S: Fn(&str) + Sync + Send,
     I: Fn(&str) + Sync + Send,
 >(
-    source: T, target: &mut W, exclude: X, compression: u32, progress_callback: P,
-    error_callback: E, info_callback: I,
+    source: T, target: &mut W, exclude: X, compression: u32, build_dict: bool,
+    progress_callback: P, error_callback: E, step_callback: S, info_callback: I,
 ) -> (u64, u64, u64) {
     let source: &Path = source.as_ref();
     let exclude: &Path = exclude.as_ref();
@@ -102,6 +109,57 @@ pub fn compress<
         source.parent().unwrap()
     };
 
+    // create compression dictionary
+    let dictionary_data = if build_dict {
+        step_callback("creating compression dictionary");
+        let mut sizes = Vec::new();
+        let mut sample = Vec::new();
+        let _ = entries
+            .iter()
+            .filter_map(|entry| {
+                // zstd dictionary data is limited to 4GB
+                if sample.len() >= 4 * 1024 * 1024 * 1024 - 128 * 1024 {
+                    return None;
+                }
+                let entry = entry.as_ref().ok()?;
+                if !entry.file_type().is_file() {
+                    return None;
+                }
+                let entry = entry.path();
+                if entry == exclude {
+                    return None;
+                }
+                if entry.file_name()?.len() > NAME_SIZE {
+                    return None;
+                }
+                let file = File::open(&entry).ok()?;
+                let size = BufReader::new(file.take(128 * 1024))
+                    .read_to_end(&mut sample)
+                    .ok()?;
+                sizes.push(size);
+                Some(())
+            })
+            .count();
+        if sizes.len() < 8 {
+            error_callback("couldn't build dictionary: not enough samples");
+            None
+        } else {
+            let dict = zstd::dict::from_continuous(&sample, &sizes, 128 * 1024).unwrap();
+            info_callback(&format!(
+                "built {:.2}MB dictionary from {:.2}MB of data",
+                dict.len() as f64 / 1024.0 / 1024.0,
+                sample.len() as f64 / 1024.0 / 1024.0
+            ));
+            Some(dict)
+        }
+    } else {
+        None
+    };
+
+    let dictionary = dictionary_data
+        .as_ref()
+        .map(|dict| EncoderDictionary::copy(dict, compression as i32));
+
     let mut directories = Vec::<DirectorySection>::new();
     // start with the source directory as parent 0
     let mut parents = Vec::<String>::from(["".to_string()]);
@@ -130,7 +188,7 @@ pub fn compress<
                 return None;
             }
 
-            info_callback(&entry.display().to_string());
+            step_callback(&entry.display().to_string());
 
             let name = entry.file_name()?.to_str()?;
 
@@ -191,7 +249,7 @@ pub fn compress<
                 return None;
             }
 
-            info_callback(&entry.strip_prefix(source).ok()?.display().to_string());
+            step_callback(&entry.strip_prefix(source).ok()?.display().to_string());
 
             let parent = entry.strip_prefix(source).ok()?.parent()?.to_slash()?;
             let parent = match parents.iter().position(|element| element == &parent) {
@@ -231,7 +289,14 @@ pub fn compress<
 
             if in_memory {
                 let mut data = Vec::new();
-                if let Err(e) = copy_encode(&mut reader, &mut data, compression as i32, 0) {
+                let mut reader = BufReader::new(&mut reader);
+                if let Err(e) = copy_encode(
+                    &mut reader,
+                    &mut data,
+                    compression as i32,
+                    0,
+                    dictionary.as_ref(),
+                ) {
                     error_callback(&format!("couldn't compress {}: {}", entry.display(), e));
                     return None;
                 }
@@ -253,7 +318,7 @@ pub fn compress<
                     end = archive.stream_position().unwrap();
                 }
             } else {
-                info_callback(&format!(
+                step_callback(&format!(
                     "{} (compressing large file to disk)",
                     entry.display(),
                 ));
@@ -266,12 +331,14 @@ pub fn compress<
                 );
 
                 if let Err(e) = (|| -> Result<()> {
+                    let mut reader = BufReader::new(&mut reader);
                     let mut cache = File::create(&cache_path)?;
                     copy_encode(
                         &mut reader,
                         &cache,
                         compression as i32,
                         u64::min(num_cpus / 2, meta_len / in_memory_limit + 1) as u32,
+                        dictionary.as_ref(),
                     )?;
                     cache.flush()?;
                     cache.sync_all()?;
@@ -283,8 +350,9 @@ pub fn compress<
 
                 if let Err(e) = (|| -> Result<()> {
                     let cache = File::open(&cache_path)?;
+                    let mut reader = BufReader::new(&cache);
                     let mut archive = archive.lock();
-                    let mut hasher = HashReader::new(&cache, XxHash64::with_seed(HASH_SEED));
+                    let mut hasher = HashReader::new(&mut reader, XxHash64::with_seed(HASH_SEED));
                     if let Ok(ref mut archive) = archive {
                         start = archive.stream_position().unwrap();
                         copy(&mut hasher, archive.by_ref())?;
@@ -384,7 +452,7 @@ pub fn compress<
                 return None;
             }
 
-            info_callback(&entry.strip_prefix(source).ok()?.display().to_string());
+            step_callback(&entry.strip_prefix(source).ok()?.display().to_string());
 
             let parent = entry.strip_prefix(source).ok()?.parent()?.to_slash()?;
             let parent = match parents.iter().position(|element| element == &parent) {
@@ -513,6 +581,9 @@ pub fn compress<
 
     // write sections
     let mut hasher = XxHash64::with_seed(HASH_SEED);
+    if let Some(dict) = &dictionary_data {
+        target.write_all(dict).unwrap();
+    }
     for section in directories.iter() {
         hasher.write(section.as_bytes());
         target.write_all(section.as_bytes()).unwrap();
@@ -527,9 +598,10 @@ pub fn compress<
     }
     let payload_header = PayloadHeader {
         kind:               0,
-        directory_sections: directories.len(),
-        file_sections:      files.lock().unwrap().len(),
-        symlink_sections:   symlinks.lock().unwrap().len(),
+        directory_sections: directories.len() as u64,
+        file_sections:      files.lock().unwrap().len() as u64,
+        symlink_sections:   symlinks.lock().unwrap().len() as u64,
+        dictionary_size:    dictionary_data.map_or(0, |dict| dict.len() as u64),
         section_hash:       hasher.finish(),
         payload_size:       end - zero,
     };

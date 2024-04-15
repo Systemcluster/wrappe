@@ -55,6 +55,9 @@ pub struct Args {
     /// Working directory of the command (inherit, unpack, runner, command)
     #[arg(short = 'w', long, default_value = "inherit")]
     current_dir:      String,
+    /// Build compression dictionary
+    #[arg(short = 'z', long, default_value = "false")]
+    build_dictionary: bool,
     /// Print available runners
     #[arg(short = 'l', long)]
     #[allow(dead_code)]
@@ -232,6 +235,7 @@ fn main() {
         &mut writer,
         &output,
         args.compression,
+        args.build_dictionary,
         || {
             bar_progress.inc(1);
         },
@@ -245,6 +249,13 @@ fn main() {
         },
         |message| {
             bar_progress.set_message(format!("{}", style(message).blue().bright()));
+        },
+        |message| {
+            bar_progress.println(format!(
+                "      {}{}",
+                Emoji("💡 ", ""),
+                style(message).dim()
+            ));
         },
     );
     bar_progress.finish_and_clear();
@@ -308,7 +319,7 @@ fn main() {
     writer.write_all(info.as_bytes()).unwrap();
 
     writer.flush().unwrap();
-    let _ = writer;
+    drop(writer);
 
     #[cfg(any(unix, target_os = "redox"))]
     {

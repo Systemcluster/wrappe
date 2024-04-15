@@ -69,6 +69,8 @@ Options:
         Show or attach to a console window (auto, always, never, attach) [default: auto]
   -w, --current-dir <CURRENT_DIR>
         Working directory of the command (inherit, unpack, runner, command) [default: inherit]
+  -z, --build-dictionary
+        Build compression dictionary
   -l, --list-runners
         Print available runners
   -h, --help
@@ -164,6 +166,14 @@ This option changes the working directory of the packed executable. Accepted val
 * `command`: The working directory will be set to the directory containing the unpacked executable. This will either be the unpack directory or a subdirectory within the unpacked payload.
 
 It defaults to `inherit`.
+
+#### build-dictionary
+
+This option builds a zstandard compression dictionary from the input files and stores it in the output executable. This can improve the compression ratio when many small and similar files are packed.
+
+At least 8 input files are required to build a dictionary, and at most 128 KB of data from each input file will be sampled.
+
+Building a dictionary can increase the packing time and can in some cases negatively affect the compression ratio. It is recommended to test the results with and without this option to determine whether it is beneficial for the specific use case.
 
 ## Compilation
 

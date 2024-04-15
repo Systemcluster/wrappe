@@ -1,6 +1,6 @@
 pub use zerocopy::{FromBytes, FromZeroes};
 
-pub const WRAPPE_FORMAT: u8 = 201;
+pub const WRAPPE_FORMAT: u8 = 202;
 pub const WRAPPE_SIGNATURE_1: [u8; 6] = [0x50, 0x45, 0x33, 0x44, 0x00, 0x00];
 pub const WRAPPE_SIGNATURE_2: [u8; 4] = [0x41, 0x54, 0x41, 0x00];
 pub const NAME_SIZE: usize = 128;
@@ -26,15 +26,16 @@ pub struct StarterInfo {
 #[repr(C, packed)]
 #[derive(FromBytes, FromZeroes)]
 pub struct PayloadHeader {
-    pub kind:               u8,
-    pub directory_sections: usize,
-    pub file_sections:      usize,
-    pub symlink_sections:   usize,
+    pub directory_sections: u64,
+    pub file_sections:      u64,
+    pub symlink_sections:   u64,
+    pub dictionary_size:    u64,
     pub section_hash:       u64,
     pub payload_size:       u64,
+    pub kind:               u8,
 }
 impl PayloadHeader {
-    pub fn len(&self) -> usize {
+    pub fn len(&self) -> u64 {
         self.directory_sections + self.file_sections + self.symlink_sections
     }
 }
@@ -50,14 +51,14 @@ pub struct FileSectionHeader {
     pub position:              u64,
     pub size:                  u64,
     pub name:                  [u8; NAME_SIZE],
-    pub parent:                u32,
     pub file_hash:             u64,
     pub compressed_hash:       u64,
     pub time_accessed_seconds: u64,
-    pub time_accessed_nanos:   u32,
     pub time_modified_seconds: u64,
-    pub time_modified_nanos:   u32,
+    pub parent:                u32,
     pub mode:                  u32,
+    pub time_accessed_nanos:   u32,
+    pub time_modified_nanos:   u32,
     pub readonly:              u8,
 }
 #[repr(C, packed)]
@@ -65,12 +66,12 @@ pub struct FileSectionHeader {
 pub struct SymlinkSection {
     pub name:                  [u8; NAME_SIZE],
     pub parent:                u32,
-    pub kind:                  u8,
     pub target:                u32,
     pub time_accessed_seconds: u64,
-    pub time_accessed_nanos:   u32,
     pub time_modified_seconds: u64,
+    pub time_accessed_nanos:   u32,
     pub time_modified_nanos:   u32,
     pub mode:                  u32,
+    pub kind:                  u8,
     pub readonly:              u8,
 }

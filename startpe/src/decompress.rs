@@ -1,7 +1,7 @@
 use std::{
     fs::{create_dir_all, read_link, remove_dir, remove_file, File},
     hash::Hasher,
-    io::{copy, sink, Cursor, Read, Result},
+    io::{copy, sink, BufReader, BufWriter, Read, Result},
     mem::size_of,
     path::{Path, PathBuf},
     thread::sleep,
@@ -13,7 +13,7 @@ use fslock::LockFile;
 use rayon::prelude::*;
 use twox_hash::XxHash64;
 use zerocopy::Ref;
-use zstd::stream::copy_decode;
+use zstd::{dict::DecoderDictionary, zstd_safe::DCtx, Decoder};
 
 use crate::types::*;
 
@@ -44,6 +44,7 @@ impl<R: Read, H: Hasher> Read for HashReader<R, H> {
 /// Decompress the payload and section data in `mmap` into `unpack_dir`.
 /// The data is expected to be in the following order at the end of `mmap`:
 /// - compressed file contents
+/// - compression dictionary
 /// - directory sections
 /// - file section headers
 /// - symlink sections
@@ -58,10 +59,11 @@ pub fn decompress(
         .expect("couldn't read payload header")
         .into_ref();
 
-    let directory_sections = payload_header.directory_sections;
-    let file_sections = payload_header.file_sections;
-    let symlink_sections = payload_header.symlink_sections;
-    let payload_size = payload_header.payload_size;
+    let directory_sections = payload_header.directory_sections as usize;
+    let file_sections = payload_header.file_sections as usize;
+    let symlink_sections = payload_header.symlink_sections as usize;
+    let dictionary_size = payload_header.dictionary_size as usize;
+    let payload_size = payload_header.payload_size as usize;
     if show_information >= 2 {
         println!(
             "payload: {} directories, {} files, {} symlinks ({} total)",
@@ -70,6 +72,7 @@ pub fn decompress(
             symlink_sections,
             payload_header.len()
         );
+        println!("dictionary size: {}", dictionary_size);
         println!("payload size: {}", payload_size);
     }
 
@@ -80,11 +83,21 @@ pub fn decompress(
     let directory_sections_start =
         file_sections_start - directory_sections * size_of::<DirectorySection>();
 
+    let dictionary_start = directory_sections_start - dictionary_size;
+    let files_start = dictionary_start - payload_size;
+
     let mut section_hasher = XxHash64::with_seed(HASH_SEED);
 
     if show_information >= 2 {
         println!("reading sections...");
     }
+    let dictionary = if dictionary_size > 0 {
+        Some(DecoderDictionary::copy(
+            &mmap[dictionary_start..directory_sections_start],
+        ))
+    } else {
+        None
+    };
     let directories = mmap[directory_sections_start..file_sections_start]
         .chunks(size_of::<DirectorySection>())
         .enumerate()
@@ -302,22 +315,33 @@ pub fn decompress(
         if show_information >= 2 {
             println!("unpacking...");
         }
-        let files_start = directory_sections_start as u64 - payload_size;
         files.par_iter().for_each(|(file, file_name)| {
             let path = unpack_dir
                 .join(&directories[file.parent as usize])
                 .join(file_name);
-            let content = &mmap[(files_start + file.position) as usize
-                ..(files_start + file.position + file.size) as usize];
-            let mut reader = HashReader::new(Cursor::new(&content), XxHash64::with_seed(HASH_SEED));
-            let mut output = File::create(&path).unwrap();
-            copy_decode(&mut reader, &mut output)
-                .unwrap_or_else(|e| panic!("failed to unpack file {}: {}", path.display(), e));
+            let content = &mmap[files_start + file.position as usize
+                ..files_start + (file.position + file.size) as usize];
+            let mut reader = HashReader::new(content, XxHash64::with_seed(HASH_SEED));
+            {
+                let mut reader = BufReader::with_capacity(DCtx::in_size(), &mut reader);
+                let output = File::create(&path).unwrap();
+                let mut output = BufWriter::with_capacity(DCtx::out_size(), output);
+                let decoder = if let Some(dict) = &dictionary {
+                    Decoder::with_prepared_dictionary(&mut reader, dict)
+                } else {
+                    Decoder::with_buffer(&mut reader)
+                };
+                let mut decoder = decoder.unwrap_or_else(|e| {
+                    panic!("failed to create decoder for {}: {}", path.display(), e)
+                });
+                copy(&mut decoder, &mut output)
+                    .unwrap_or_else(|e| panic!("failed to unpack file {}: {}", path.display(), e));
+            }
             let compressed_hash = reader.finish();
             if file.compressed_hash != compressed_hash {
                 let expected = file.compressed_hash;
                 panic!(
-                    "file hash ({}) differs from expected file hash ({}) for {}",
+                    "compressed file hash ({}) differs from expected hash ({}) for {}",
                     compressed_hash,
                     expected,
                     path.display()
