@@ -126,7 +126,7 @@ fn compile_runner(starter_dir: &Path, target: &str, out_dir: &str) -> bool {
         .unwrap_or_else(|e| panic!("couldn't compile runner for target {}: {}", &target, e));
     if status.success() {
         if let Ok(var) = var(format!("WRAPPE_TARGET_STRIP_{}", target)) {
-            strip_runner(target, out_dir, &profile, &var);
+            strip_runner(target, out_dir, &profile, &var).unwrap();
         }
     }
     status.success()
@@ -134,6 +134,11 @@ fn compile_runner(starter_dir: &Path, target: &str, out_dir: &str) -> bool {
 
 fn strip_runner(target: &str, out_dir: &str, profile: &str, strip: &str) -> Option<()> {
     eprintln!("stripping runner for target {} with {}", target, strip);
+    let strip = if strip.starts_with('"') && strip.ends_with('"') {
+        &strip[1..strip.len() - 1]
+    } else {
+        strip
+    };
     let (strip, args) = strip.split_once(' ').unwrap_or((strip, ""));
     let strip = which(strip.trim())
         .map_err(|e| {
@@ -145,7 +150,7 @@ fn strip_runner(target: &str, out_dir: &str, profile: &str, strip: &str) -> Opti
         .map(|arg| arg.trim())
         .filter(|arg| !arg.is_empty());
     let mut command = Command::new(strip);
-    command.args(args).arg(format!(
+    let path = format!(
         "{}/{}/{}/{}{}",
         out_dir,
         target,
@@ -156,7 +161,8 @@ fn strip_runner(target: &str, out_dir: &str, profile: &str, strip: &str) -> Opti
         } else {
             ""
         }
-    ));
+    );
+    command.args(args).arg(path);
     let status = command
         .status()
         .map_err(|e| eprintln!("couldn't strip runner for target {}: {}", target, e))
