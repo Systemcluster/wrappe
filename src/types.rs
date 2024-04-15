@@ -31,6 +31,7 @@ pub struct PayloadHeader {
     pub dictionary_size:    u64,
     pub section_hash:       u64,
     pub payload_size:       u64,
+    pub sections_size:      u64,
     pub kind:               u8,
 }
 impl PayloadHeader {

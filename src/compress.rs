@@ -63,9 +63,10 @@ pub fn copy_encode<R: Read, W: Write>(
 /// The data is written subsequently in the following order:
 /// - compressed file contents
 /// - compression dictionary
-/// - directory sections
-/// - file section headers
-/// - symlink sections
+/// - compressed sections
+///   - directory sections
+///   - file section headers
+///   - symlink sections
 /// - payload section header
 #[allow(clippy::too_many_arguments)]
 pub fn compress<
@@ -584,26 +585,43 @@ pub fn compress<
     if let Some(dict) = &dictionary_data {
         target.write_all(dict).unwrap();
     }
+    let sections_buffer = Vec::new();
+    let mut sections_buffer = Cursor::new(sections_buffer);
     for section in directories.iter() {
         hasher.write(section.as_bytes());
-        target.write_all(section.as_bytes()).unwrap();
+        sections_buffer.write_all(section.as_bytes()).unwrap();
     }
     for section in files.lock().unwrap().iter() {
         hasher.write(section.as_bytes());
-        target.write_all(section.as_bytes()).unwrap();
+        sections_buffer.write_all(section.as_bytes()).unwrap();
     }
     for section in symlinks.lock().unwrap().iter() {
         hasher.write(section.as_bytes());
-        target.write_all(section.as_bytes()).unwrap();
+        sections_buffer.write_all(section.as_bytes()).unwrap();
     }
+    let sections_buffer = sections_buffer.into_inner();
+    let mut sections_buffer = Cursor::new(&sections_buffer);
+    let sections_start = target.stream_position().unwrap();
+    copy_encode(
+        &mut sections_buffer,
+        target.by_ref(),
+        compression as i32,
+        0,
+        None,
+    )
+    .unwrap();
+    let sections_size = target.stream_position().unwrap() - sections_start;
+
+    // write payload header
     let payload_header = PayloadHeader {
-        kind:               0,
+        kind: 0,
         directory_sections: directories.len() as u64,
-        file_sections:      files.lock().unwrap().len() as u64,
-        symlink_sections:   symlinks.lock().unwrap().len() as u64,
-        dictionary_size:    dictionary_data.map_or(0, |dict| dict.len() as u64),
-        section_hash:       hasher.finish(),
-        payload_size:       end - zero,
+        file_sections: files.lock().unwrap().len() as u64,
+        symlink_sections: symlinks.lock().unwrap().len() as u64,
+        dictionary_size: dictionary_data.map_or(0, |dict| dict.len() as u64),
+        section_hash: hasher.finish(),
+        payload_size: end - zero,
+        sections_size,
     };
     target.write_all(payload_header.as_bytes()).unwrap();
     target.flush().unwrap();

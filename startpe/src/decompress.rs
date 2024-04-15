@@ -1,7 +1,7 @@
 use std::{
     fs::{create_dir_all, read_link, remove_dir, remove_file, File},
     hash::Hasher,
-    io::{copy, sink, BufReader, BufWriter, Read, Result},
+    io::{copy, sink, BufReader, BufWriter, Cursor, Read, Result},
     mem::size_of,
     path::{Path, PathBuf},
     thread::sleep,
@@ -45,9 +45,10 @@ impl<R: Read, H: Hasher> Read for HashReader<R, H> {
 /// The data is expected to be in the following order at the end of `mmap`:
 /// - compressed file contents
 /// - compression dictionary
-/// - directory sections
-/// - file section headers
-/// - symlink sections
+/// - compressed sections
+///   - directory sections
+///   - file section headers
+///   - symlink sections
 /// - payload section header
 pub fn decompress(
     mmap: &[u8], unpack_dir: &Path, verification: u8, mut should_extract: bool, version: &str,
@@ -64,6 +65,7 @@ pub fn decompress(
     let symlink_sections = payload_header.symlink_sections as usize;
     let dictionary_size = payload_header.dictionary_size as usize;
     let payload_size = payload_header.payload_size as usize;
+    let sections_size = payload_header.sections_size as usize;
     if show_information >= 2 {
         println!(
             "payload: {} directories, {} files, {} symlinks ({} total)",
@@ -76,14 +78,19 @@ pub fn decompress(
         println!("payload size: {}", payload_size);
     }
 
-    let symlink_sections_start =
-        payload_header_start - symlink_sections * size_of::<SymlinkSection>();
-    let file_sections_start =
-        symlink_sections_start - file_sections * size_of::<FileSectionHeader>();
-    let directory_sections_start =
-        file_sections_start - directory_sections * size_of::<DirectorySection>();
+    let mut sections = Vec::with_capacity(sections_size);
+    let mut reader = Cursor::new(&mmap[payload_header_start - sections_size..payload_header_start]);
+    let mut decoder = Decoder::new(&mut reader).unwrap();
+    copy(&mut decoder, &mut sections)
+        .unwrap_or_else(|e| panic!("couldn't decompress payload sections: {}", e));
 
-    let dictionary_start = directory_sections_start - dictionary_size;
+    let directory_sections_start = 0;
+    let file_sections_start =
+        directory_sections_start + directory_sections * size_of::<DirectorySection>();
+    let symlink_sections_start =
+        file_sections_start + file_sections * size_of::<FileSectionHeader>();
+
+    let dictionary_start = payload_header_start - sections_size - dictionary_size;
     let files_start = dictionary_start - payload_size;
 
     let mut section_hasher = XxHash64::with_seed(HASH_SEED);
@@ -93,12 +100,12 @@ pub fn decompress(
     }
     let dictionary = if dictionary_size > 0 {
         Some(DecoderDictionary::copy(
-            &mmap[dictionary_start..directory_sections_start],
+            &mmap[dictionary_start..payload_header_start - sections_size],
         ))
     } else {
         None
     };
-    let directories = mmap[directory_sections_start..file_sections_start]
+    let directories = sections[directory_sections_start..file_sections_start]
         .chunks(size_of::<DirectorySection>())
         .enumerate()
         .fold(
@@ -108,7 +115,7 @@ pub fn decompress(
                 let section_start = directory_sections_start + i * size_of::<DirectorySection>();
                 section_hasher.write(section);
                 let section = Ref::<_, DirectorySection>::new(
-                    &mmap[section_start..section_start + size_of::<DirectorySection>()],
+                    &sections[section_start..section_start + size_of::<DirectorySection>()],
                 )
                 .expect("couldn't read payload header")
                 .into_ref();
@@ -128,14 +135,14 @@ pub fn decompress(
                 directories
             },
         );
-    let files = mmap[file_sections_start..symlink_sections_start]
+    let files = sections[file_sections_start..symlink_sections_start]
         .chunks(size_of::<FileSectionHeader>())
         .enumerate()
         .map(|(i, section)| {
             let section_start = file_sections_start + i * size_of::<FileSectionHeader>();
             section_hasher.write(section);
             let section = Ref::<_, FileSectionHeader>::new(
-                &mmap[section_start..section_start + size_of::<FileSectionHeader>()],
+                &sections[section_start..section_start + size_of::<FileSectionHeader>()],
             )
             .expect("couldn't read payload header")
             .into_ref();
@@ -152,14 +159,14 @@ pub fn decompress(
             )
         })
         .collect::<Vec<_>>();
-    let symlinks = mmap[symlink_sections_start..payload_header_start]
+    let symlinks = sections[symlink_sections_start..]
         .chunks(size_of::<SymlinkSection>())
         .enumerate()
         .map(|(i, section)| {
             let section_start = symlink_sections_start + i * size_of::<SymlinkSection>();
             section_hasher.write(section);
             let section = Ref::<_, SymlinkSection>::new(
-                &mmap[section_start..section_start + size_of::<SymlinkSection>()],
+                &sections[section_start..section_start + size_of::<SymlinkSection>()],
             )
             .expect("couldn't read payload header")
             .into_ref();
