@@ -5,14 +5,13 @@ use std::{
     mem::size_of,
     panic::set_hook,
     process::Command,
+    time::SystemTime,
 };
 
 #[cfg(any(unix, target_os = "redox"))]
 use std::os::unix::process::CommandExt;
 #[cfg(not(any(unix, target_os = "redox")))]
 use std::process::Stdio;
-#[cfg(windows)]
-use std::time::SystemTime;
 
 #[cfg(windows)]
 use winapi::um::wincon::{AttachConsole, ATTACH_PARENT_PROCESS};
@@ -199,6 +198,7 @@ fn main() {
     }
 
     if should_extract || verification > 0 {
+        let now = SystemTime::now();
         let extracted = decompress(
             &mmap[..info_start],
             &unpack_dir,
@@ -208,6 +208,12 @@ fn main() {
             show_information,
         );
         if extracted {
+            if show_information >= 2 {
+                println!(
+                    "decompressed in {}ms",
+                    now.elapsed().unwrap_or_default().as_millis()
+                );
+            }
             set_executable_permissions(run_path);
         }
     }

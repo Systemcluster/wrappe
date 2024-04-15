@@ -3,7 +3,7 @@ use std::{
     fs::File,
     io::{BufWriter, Cursor, Write},
     path::PathBuf,
-    time::Duration,
+    time::{Duration, SystemTime},
 };
 
 use clap::Parser;
@@ -226,6 +226,7 @@ fn main() {
     bar_progress.set_length(count);
     bar_progress.set_position(0);
     bar_progress.enable_steady_tick(Duration::from_millis(12));
+    let now = SystemTime::now();
     let (compressed, read, written) = compress(
         &source,
         &mut writer,
@@ -257,6 +258,15 @@ fn main() {
             read as f64 / 1024.0 / 1024.0,
             written as f64 / 1024.0 / 1024.0,
             (written as f64 / read as f64) * 100.0
+        ))
+        .dim(),
+    );
+    println!(
+        "      {}{}",
+        Emoji("⌛ ", ""),
+        style(format!(
+            "took {:.2}s",
+            now.elapsed().unwrap_or_default().as_secs_f64()
         ))
         .dim(),
     );
