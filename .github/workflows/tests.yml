@@ -65,7 +65,8 @@ jobs:
         run: |
           target/debug/wrappe --version
           target/debug/wrappe --list-runners
-          target/debug/wrappe target/debug/wrappe${{ runner.os == 'Windows' && '.exe' || '' }} target/debug/wrappe${{ runner.os == 'Windows' && '.exe' || '' }}
+          target/debug/wrappe target/debug/wrappe${{ runner.os == 'Windows' && '.exe' || '' }} target/debug/wrappe${{ runner.os == 'Windows' && '.exe' || '' }} packed${{ runner.os == 'Windows' && '.exe' || '' }}
+          ./packed${{ runner.os == 'Windows' && '.exe' || '' }} --version
 
   formatting:
 

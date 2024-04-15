@@ -184,13 +184,13 @@ jobs:
           # Collect executables
           mv target/x86_64-pc-windows-gnu/release/wrappe.exe wrappe.exe
           mv target/x86_64-unknown-linux-musl/release/wrappe wrappe-linux
-          mv target/x86_64-apple-darwin/release/wrappe wrappe-macos
+          mv target/x86_64-apple-darwin/release/wrappe wrappe-macos-x86
           mv target/aarch64-apple-darwin/release/wrappe wrappe-macos-arm
           chmod +x wrappe-linux
-          chmod +x wrappe-macos
+          chmod +x wrappe-macos-x86
           chmod +x wrappe-macos-arm
-          x86_64-apple-darwin22.4-strip -S wrappe-macos
-
+          x86_64-apple-darwin22.4-strip -S wrappe-macos-x86
+          aarch64-apple-darwin22.4-lipo -create -output wrappe-macos wrappe-macos-arm wrappe-macos-x86
 
       - name: Upload release
         uses: Systemcluster/actions@release-github-v0
@@ -201,4 +201,3 @@ jobs:
             wrappe.exe
             wrappe-linux
             wrappe-macos
-            wrappe-macos-arm
