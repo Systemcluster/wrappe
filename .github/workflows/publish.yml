@@ -91,6 +91,8 @@ jobs:
       WRAPPE_TARGET_RUSTFLAGS_x86_64-pc-windows-gnu: "-Ctarget-cpu=x86-64-v2 -Ctarget-feature=+crt-static"
       WRAPPE_TARGET_RUSTFLAGS_x86_64-unknown-linux-musl: "-Ctarget-cpu=x86-64-v2 -Ctarget-feature=+crt-static"
 
+      WRAPPE_MACOS_UNIVERSAL: "aarch64-apple-darwin;x86_64-apple-darwin"
+
     steps:
       - name: Checkout source
         uses: actions/checkout@v4

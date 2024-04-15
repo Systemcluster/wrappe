@@ -1,6 +1,7 @@
 use std::{
     env::{var, vars},
-    fs::File,
+    fs::{create_dir_all, File},
+    ops::Deref,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -13,6 +14,7 @@ use which::which;
 const TARGETS_ENV: &str = "WRAPPE_TARGETS";
 const FILES_ENV: &str = "WRAPPE_FILES";
 const USE_CROSS_ENV: &str = "WRAPPE_USE_CROSS";
+const MACOS_UNIVERSAL_ENV: &str = "WRAPPE_MACOS_UNIVERSAL";
 const STARTER_NAME: &str = "startpe";
 
 
@@ -162,6 +164,41 @@ fn strip_runner(target: &str, out_dir: &str, profile: &str, strip: &str) -> Opti
     status.success().then_some(())
 }
 
+fn create_universal_macos_binary(
+    files: &[(String, String)], combine: &[&str], out_dir: &str,
+) -> Option<String> {
+    let lipo = which("lipo")
+        .map_err(|e| {
+            eprintln!("couldn't find lipo for creating universal binary: {}", e);
+        })
+        .ok()?;
+    let universal = format!("{}/universal", out_dir);
+    create_dir_all(&universal)
+        .map_err(|e| {
+            eprintln!("couldn't create universal directory: {}", e);
+        })
+        .ok()?;
+    let universal = format!("{}/{}", universal, STARTER_NAME);
+    let mut args = ["-create", "-output", &universal].to_vec();
+    args.extend(combine.iter().map(|target| {
+        files
+            .iter()
+            .find(|(t, _)| t == target)
+            .map(|(_, file)| file.deref())
+            .unwrap()
+    }));
+    let status = Command::new(lipo)
+        .args(args)
+        .status()
+        .map_err(|e| eprintln!("couldn't create universal binary: {}", e))
+        .ok()?;
+    if status.success() {
+        Some(universal)
+    } else {
+        None
+    }
+}
+
 fn get_git_hash() -> Option<String> {
     if !Path::new(".git").is_dir() {
         return None;
@@ -232,25 +269,57 @@ fn main() {
         }
     }
     let profile = var("PROFILE").unwrap();
-    let files = active_targets
+    let mut files = active_targets
         .iter()
         .map(|target| {
-            format!(
-                "{}/{}/{}/{}{}",
-                out_dir,
-                target,
-                profile,
-                STARTER_NAME,
-                if target.contains("windows") {
-                    ".exe"
-                } else {
-                    ""
-                }
+            (
+                target.clone(),
+                format!(
+                    "{}/{}/{}/{}{}",
+                    out_dir,
+                    target,
+                    profile,
+                    STARTER_NAME,
+                    if target.contains("windows") {
+                        ".exe"
+                    } else {
+                        ""
+                    }
+                ),
             )
         })
+        .collect::<Vec<_>>();
+    if let Ok(macos_universal) = var(MACOS_UNIVERSAL_ENV) {
+        let combine = macos_universal
+            .split(';')
+            .map(|c| c.trim())
+            .collect::<Vec<_>>();
+        if combine
+            .iter()
+            .all(|target| active_targets.contains(&target.to_string()))
+        {
+            let file = create_universal_macos_binary(&files, &combine, &out_dir).unwrap();
+            files.push(("universal-apple-darwin".to_string(), file));
+        } else {
+            panic!(
+                "couldn't create universal binary, target {} not in active targets",
+                combine
+                    .iter()
+                    .find(|target| !active_targets.contains(&target.to_string()))
+                    .unwrap()
+            );
+        }
+    }
+    let targets = files
+        .iter()
+        .map(|(target, _)| target.clone())
         .collect::<Vec<_>>()
         .join(";");
-    let targets = active_targets.join(";");
+    let files = files
+        .iter()
+        .map(|(_, file)| file.clone())
+        .collect::<Vec<_>>()
+        .join(";");
     println!("cargo:rustc-env={}={}", TARGETS_ENV, targets);
     println!("cargo:rustc-env={}={}", FILES_ENV, files);
 }
