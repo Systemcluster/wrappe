@@ -77,14 +77,14 @@ jobs:
       WRAPPE_TARGETS: "aarch64-apple-darwin;x86_64-apple-darwin;x86_64-pc-windows-gnu;x86_64-unknown-linux-musl"
       MACOSX_DEPLOYMENT_TARGET: 12.3
 
-      WRAPPE_TARGET_CC_aarch64-apple-darwin: "aarch64-apple-darwin21.4-clang"
-      WRAPPE_TARGET_CXX_aarch64-apple-darwin: "aarch64-apple-darwin21.4-clang++"
-      WRAPPE_TARGET_AR_aarch64-apple-darwin: "aarch64-apple-darwin21.4-ar"
-      WRAPPE_TARGET_CC_x86_64-apple-darwin: "x86_64-apple-darwin21.4-clang"
-      WRAPPE_TARGET_CXX_x86_64-apple-darwin: "x86_64-apple-darwin21.4-clang++"
-      WRAPPE_TARGET_AR_x86_64-apple-darwin: "x86_64-apple-darwin21.4-ar"
+      WRAPPE_TARGET_CC_aarch64-apple-darwin: "aarch64-apple-darwin22.4-clang"
+      WRAPPE_TARGET_CXX_aarch64-apple-darwin: "aarch64-apple-darwin22.4-clang++"
+      WRAPPE_TARGET_AR_aarch64-apple-darwin: "aarch64-apple-darwin22.4-ar"
+      WRAPPE_TARGET_CC_x86_64-apple-darwin: "x86_64-apple-darwin22.4-clang"
+      WRAPPE_TARGET_CXX_x86_64-apple-darwin: "x86_64-apple-darwin22.4-clang++"
+      WRAPPE_TARGET_AR_x86_64-apple-darwin: "x86_64-apple-darwin22.4-ar"
 
-      WRAPPE_TARGET_STRIP_x86_64-apple-darwin: "x86_64-apple-darwin21.4-strip -S"
+      WRAPPE_TARGET_STRIP_x86_64-apple-darwin: "x86_64-apple-darwin22.4-strip -S"
 
       WRAPPE_TARGET_RUSTFLAGS_aarch64-apple-darwin: "-Ctarget-cpu=apple-m1 -Ctarget-feature=+crt-static"
       WRAPPE_TARGET_RUSTFLAGS_x86_64-apple-darwin: "-Ctarget-cpu=x86-64-v2 -Ctarget-feature=+crt-static"
@@ -102,12 +102,12 @@ jobs:
         run: sudo apt-get install mingw-w64 musl-tools patch libssl-dev lzma-dev libxml2-dev llvm-dev
 
       - name: Set up macOS toolchain cache
-        uses: actions/cache/restore@v3
+        uses: actions/cache/restore@v4
         id: cache-osxcross
         with:
           path: |
             ~/osxcross
-          key: ${{ runner.os }}-toolchain-osxcross-12.3
+          key: ${{ runner.os }}-toolchain-osxcross-13.3
           restore-keys: |
             ${{ runner.os }}-toolchain-osxcross
 
@@ -120,16 +120,16 @@ jobs:
           cd $HOME
           [ -d "osxcross" ] || git clone https://github.com/tpoechtrager/osxcross
           cd osxcross
-          [ -f "tarballs/MacOSX12.3.sdk.tar.xz" ] || wget -nc https://github.com/alexey-lysiuk/macos-sdk/releases/download/12.3/MacOSX12.3.tar.xz -O tarballs/MacOSX12.3.sdk.tar.xz
-          [ -f "target/bin/x86_64-apple-darwin21.4-clang" ] || UNATTENDED=yes ./build.sh
+          [ -f "tarballs/MacOSX13.3.sdk.tar.xz" ] || wget -nc https://github.com/alexey-lysiuk/macos-sdk/releases/download/13.3/MacOSX13.3.tar.xz -O tarballs/MacOSX13.3.sdk.tar.xz
+          [ -f "target/bin/x86_64-apple-darwin22.4-clang" ] || UNATTENDED=yes ./build.sh
 
       - name: Save macOS toolchain cache
         if: steps.cache-osxcross.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v3
+        uses: actions/cache/save@v4
         with:
           path: |
             ~/osxcross
-          key: ${{ runner.os }}-toolchain-osxcross-12.3
+          key: ${{ runner.os }}-toolchain-osxcross-13.3
 
       - name: Configure Rust toolchain
         run: |
@@ -141,12 +141,12 @@ jobs:
           mkdir -p .cargo
           touch .cargo/config
           echo '[target.aarch64-apple-darwin]' >> .cargo/config
-          echo 'linker = "aarch64-apple-darwin21.4-clang"' >> .cargo/config
-          echo 'ar = "aarch64-apple-darwin21.4-ar"' >> .cargo/config
+          echo 'linker = "aarch64-apple-darwin22.4-clang"' >> .cargo/config
+          echo 'ar = "aarch64-apple-darwin22.4-ar"' >> .cargo/config
           echo 'rustflags = ["-Ctarget-cpu=apple-m1", "-Ctarget-feature=+crt-static"]' >> .cargo/config
           echo '[target.x86_64-apple-darwin]' >> .cargo/config
-          echo 'linker = "x86_64-apple-darwin21.4-clang"' >> .cargo/config
-          echo 'ar = "x86_64-apple-darwin21.4-ar"' >> .cargo/config
+          echo 'linker = "x86_64-apple-darwin22.4-clang"' >> .cargo/config
+          echo 'ar = "x86_64-apple-darwin22.4-ar"' >> .cargo/config
           echo 'rustflags = ["-Ctarget-cpu=x86-64-v2", "-Ctarget-feature=+crt-static"]' >> .cargo/config
           echo '[target.x86_64-pc-windows-gnu]' >> .cargo/config
           echo 'rustflags = ["-Ctarget-cpu=x86-64-v2", "-Ctarget-feature=+crt-static"]' >> .cargo/config
@@ -163,14 +163,14 @@ jobs:
 
       - name: Build macOS ARM release
         env:
-          CC: "aarch64-apple-darwin21.4-clang"
-          CXX: "aarch64-apple-darwin21.4-clang++"
+          CC: "aarch64-apple-darwin22.4-clang"
+          CXX: "aarch64-apple-darwin22.4-clang++"
         run: cargo build --release --target aarch64-apple-darwin
 
       - name: Build macOS x64 release
         env:
-          CC: "x86_64-apple-darwin21.4-clang"
-          CXX: "x86_64-apple-darwin21.4-clang++"
+          CC: "x86_64-apple-darwin22.4-clang"
+          CXX: "x86_64-apple-darwin22.4-clang++"
         run: cargo build --release --target x86_64-apple-darwin
 
       - name: Build Windows x64 release
@@ -189,7 +189,8 @@ jobs:
           chmod +x wrappe-linux
           chmod +x wrappe-macos
           chmod +x wrappe-macos-arm
-          x86_64-apple-darwin21.4-strip -S wrappe-macos
+          x86_64-apple-darwin22.4-strip -S wrappe-macos
+
 
       - name: Upload release
         uses: Systemcluster/actions@release-github-v0
