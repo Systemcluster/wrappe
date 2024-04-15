@@ -24,9 +24,9 @@ With wrappe you can distribute your application and its files as a single execut
 
 A snapshot build of the latest version can be found on the [release page](https://github.com/Systemcluster/wrappe/releases).
 
-Snapshot builds contain runners for Windows (`x86_64-pc-windows-gnu`), macOS (`x86_64-apple-darwin` and `aarch64-apple-darwin`) and Linux (`x86_64-unknown-linux-musl`).
+Snapshot builds contain runners for Windows (`x86_64-pc-windows-gnu`), macOS (`x86_64-apple-darwin` and `aarch64-apple-darwin`) and Linux (`x86_64-unknown-linux-musl`), allowing packing for these platforms without additional setup.
 
-Alternatively wrappe can be installed with `cargo`, see the [compilation](#compilation) section for more info on how to compile wrappe with additional runners.
+Alternatively wrappe can be installed with `cargo`, see the [compilation](#compilation) section for more info on how to compile wrappe with additional runners for other platforms.
 
 ### Example
 
@@ -87,15 +87,20 @@ Packed Windows executables will have their subsystem, icons and other resources 
 
 ### Options
 
+The packing and unpacking behavior is highly customizable. The default options are suitable for most use cases, but can be adjusted to fit specific requirements.
+
 #### runner
 
-This option specifies which runner will be used for the output executable. It defaults to the native runner for the current platform. Additional runners have to be included at compile time, see the compilation section for more info.
-
+This option specifies which runner will be used for the output executable. The runner is the pre-built executable that unpacks the payload and starts the packed command.
 Partial matches are accepted if unambiguous, for instance `windows` will be accepted if only one runner for Windows is available.
+
+It defaults to the native runner for the current platform. Additional runners have to be included at compile time, see the compilation section for more info.
 
 #### compression
 
-This option controls the Zstandard compression level. Accepted values range from `0` to `22`.
+This option controls the Zstandard compression level. Accepted values range from `0` to `22`. Higher compression levels will result in smaller output files, but will also increase the packing time.
+
+It defaults to `8`.
 
 #### unpack-target
 
@@ -109,17 +114,17 @@ It defaults to `temp`.
 
 #### unpack-directory
 
-This option specifies the unpack directory name inside the `unpack-target`. It defaults to the name of the input file or directory.
+This option specifies the unpack directory name inside the [`unpack-target`](#unpack-target). It defaults to the name of the input file or directory.
 
 #### versioning
 
 This option specifies the versioning strategy. Accepted values are:
 
-* `sidebyside`: An individual directory will be created for every version. The version is determined by a unique identifier created during the packing process, so different runner executables will be unpacked to different directories, unless manually specified. An already unpacked version will not be unpacked again.
+* `sidebyside`: An individual directory will be created for every version. An already unpacked version will not be unpacked again.
 * `replace`: Already unpacked files from a different version will be overwritten. Unpacked files from the same version will not be upacked again.
 * `none`: Packed files are always unpacked and already unpacked files will be overwritten.
 
-It defaults to `sidebyside`.
+It defaults to `sidebyside`. The version is determined by a unique identifier generated during the packing process or specified with the [`version-string`](#version-string) option.
 
 #### verification
 
@@ -127,9 +132,9 @@ This option specifies the verification of the unpacked payload before skipping e
 
 * `existence`: All files in the payload will be checked for existence.
 * `checksum`: A checksum for all files will be calculated and compared with the checksum calculated during the packing process.
-* `none`: No verification will be performed.
+* `none`: No verification will be performed. Unpacking will be skipped if the unpack directory exists and was created with the same version string.
 
-It defaults to `existence`.
+It defaults to `existence`. This option has no effect when [`versioning`](#versioning) is set to `none`.
 
 #### version-string
 
@@ -143,9 +148,9 @@ This option controls the information output of the runner. Accepted values are:
 * `verbose`: The runner will output various additional details like unpack status, configuration and payload size.
 * `none`: The runner will show no additional output.
 
-It defaults to `title`. Error information is always shown when applicable.
+It defaults to `title`. Error information is always shown when applicable. Windows runners using the GUI subsystem will only show information output when launched from a console and this option is set to `verbose`, or a console is attached or opened through the [`console`](#console) option.
 
-#### show-console
+#### console
 
 This option controls if the runner should attach to a console or if a console window should be opened when launching a Windows application from the Windows explorer. Accepted values are:
 
@@ -175,6 +180,14 @@ At least 8 input files are required to build a dictionary, and at most 128 KB of
 
 Building a dictionary can increase the packing time and can in some cases negatively affect the compression ratio. It is recommended to test the results with and without this option to determine whether it is beneficial for the specific use case.
 
+## Performance
+
+Wrappe is optimized for compression ratio and decompression speed, generally matching or outperforming other packers in terms of both. Packed files are decompressed from the memory-mapped executable directly to disk in parallel, while extraction is skipped when the files are already unpacked. This enables fast startup of packed executables with minimal overhead.
+
+> As an example, a 400 MB PyInstaller one-directory output with 1500 files packed with wrappe at maximum compression level results in a 100 MB executable that unpacks and starts in around 500 milliseconds on a modern system on the first run and instantly on subsequent runs. This is around 50% faster and only 5% larger than the same project packed by PyInstaller in one-file mode with UPX compression, which unpacks and loads into memory on every run.
+
+Generally, on a reasonably modern system, the decompression speed of wrappe is limited by the read and write speed of the storage medium.
+
 ## Compilation
 
 Compiling wrappe will also compile a runner for your current platform by default.
@@ -191,6 +204,12 @@ WRAPPE_TARGETS=x86_64-unknown-linux-gnu;x86_64-pc-windows-msvc cargo install wra
 
 Target-specific [rustflags](https://doc.rust-lang.org/cargo/reference/config.html#buildrustflags) for runners can be configured through the `WRAPPE_TARGET_RUSTFLAGS_{target triple}` environment variable.
 
-Cross compilation of additional runners can be performed through [cross](https://github.com/rust-embedded/cross) when available and the `WRAPPE_USE_CROSS` environment variable is set to `true`.
+### Cross Compilation
+
+Additional targets need to be available to `cargo` for cross compilation. Targets can be installed with `rustup`, for example `rustup target add x86_64-unknown-linux-musl`.
 
 Some cross compilation targets require certain `AR`, `CC` and `CXX` environment variables to be set. Target-specific `AR`, `CC` and `CXX` can be configured through the `WRAPPE_TARGET_{AR|CC|CXX}_{target triple}` environment variables.
+
+Cross compilation of additional runners can alternatively be performed through [cross](https://github.com/rust-embedded/cross) when available and the `WRAPPE_USE_CROSS` environment variable is set to `true`.
+
+When including runners for multiple macOS targets, the `WRAPPE_MACOS_UNIVERSAL` environment variable can be set to a list of targets to build a universal runner with `lipo` containing the specified architectures, for example `x86_64-apple-darwin;aarch64-apple-darwin`. This runner will be included as `universal-apple-darwin`.
