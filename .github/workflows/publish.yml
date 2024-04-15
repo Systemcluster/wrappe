@@ -84,10 +84,11 @@ jobs:
       WRAPPE_TARGET_CXX_x86_64-apple-darwin: "x86_64-apple-darwin22.4-clang++"
       WRAPPE_TARGET_AR_x86_64-apple-darwin: "x86_64-apple-darwin22.4-ar"
 
-      WRAPPE_TARGET_STRIP_x86_64-apple-darwin: "x86_64-apple-darwin22.4-strip -S"
+      WRAPPE_TARGET_STRIP_x86_64-apple-darwin: "llvm-strip -x"
+      WRAPPE_TARGET_STRIP_aarch64-apple-darwin: "llvm-strip -x"
 
-      WRAPPE_TARGET_RUSTFLAGS_aarch64-apple-darwin: "-Ctarget-cpu=apple-m1 -Ctarget-feature=+crt-static"
-      WRAPPE_TARGET_RUSTFLAGS_x86_64-apple-darwin: "-Ctarget-cpu=x86-64-v2 -Ctarget-feature=+crt-static"
+      WRAPPE_TARGET_RUSTFLAGS_aarch64-apple-darwin: "-Ctarget-cpu=apple-m1 -Ctarget-feature=+crt-static -Cstrip=none"
+      WRAPPE_TARGET_RUSTFLAGS_x86_64-apple-darwin: "-Ctarget-cpu=x86-64-v2 -Ctarget-feature=+crt-static -Cstrip=none"
       WRAPPE_TARGET_RUSTFLAGS_x86_64-pc-windows-gnu: "-Ctarget-cpu=x86-64-v2 -Ctarget-feature=+crt-static"
       WRAPPE_TARGET_RUSTFLAGS_x86_64-unknown-linux-musl: "-Ctarget-cpu=x86-64-v2 -Ctarget-feature=+crt-static"
 
@@ -145,11 +146,11 @@ jobs:
           echo '[target.aarch64-apple-darwin]' >> .cargo/config
           echo 'linker = "aarch64-apple-darwin22.4-clang"' >> .cargo/config
           echo 'ar = "aarch64-apple-darwin22.4-ar"' >> .cargo/config
-          echo 'rustflags = ["-Ctarget-cpu=apple-m1", "-Ctarget-feature=+crt-static"]' >> .cargo/config
+          echo 'rustflags = ["-Ctarget-cpu=apple-m1", "-Ctarget-feature=+crt-static", "-Cstrip=none"]' >> .cargo/config
           echo '[target.x86_64-apple-darwin]' >> .cargo/config
           echo 'linker = "x86_64-apple-darwin22.4-clang"' >> .cargo/config
           echo 'ar = "x86_64-apple-darwin22.4-ar"' >> .cargo/config
-          echo 'rustflags = ["-Ctarget-cpu=x86-64-v2", "-Ctarget-feature=+crt-static"]' >> .cargo/config
+          echo 'rustflags = ["-Ctarget-cpu=x86-64-v2", "-Ctarget-feature=+crt-static", "-Cstrip=none"]' >> .cargo/config
           echo '[target.x86_64-pc-windows-gnu]' >> .cargo/config
           echo 'rustflags = ["-Ctarget-cpu=x86-64-v2", "-Ctarget-feature=+crt-static"]' >> .cargo/config
           echo '[target.x86_64-unknown-linux-musl]' >> .cargo/config
@@ -162,6 +163,7 @@ jobs:
           channel: ${{ matrix.toolchain }}
           targets: ${{ env.WRAPPE_TARGETS }}
           cache-key-job: true
+          components: llvm-tools
 
       - name: Build macOS ARM release
         env:
@@ -191,7 +193,8 @@ jobs:
           chmod +x wrappe-linux
           chmod +x wrappe-macos-x86
           chmod +x wrappe-macos-arm
-          x86_64-apple-darwin22.4-strip -S wrappe-macos-x86
+          llvm-strip -x wrappe-macos-x86
+          llvm-strip -x wrappe-macos-arm
           aarch64-apple-darwin22.4-lipo -create -output wrappe-macos wrappe-macos-arm wrappe-macos-x86
 
       - name: Upload release
