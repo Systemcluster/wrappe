@@ -1,7 +1,7 @@
 use std::{
     fs::{create_dir_all, read_link, remove_dir, remove_file, File},
     hash::Hasher,
-    io::{copy, sink, BufReader, BufWriter, Cursor, Read, Result},
+    io::{copy, sink, BufReader, BufWriter, Read, Result},
     mem::size_of,
     path::{Path, PathBuf},
     thread::sleep,
@@ -14,6 +14,12 @@ use rayon::prelude::*;
 use twox_hash::XxHash64;
 use zerocopy::Ref;
 use zstd::{dict::DecoderDictionary, zstd_safe::DCtx, Decoder};
+
+#[cfg(windows)]
+use winapi::um::{
+    memoryapi::PrefetchVirtualMemory, memoryapi::WIN32_MEMORY_RANGE_ENTRY,
+    processthreadsapi::GetCurrentProcess,
+};
 
 use crate::types::*;
 
@@ -79,7 +85,10 @@ pub fn decompress(
     }
 
     let mut sections = Vec::with_capacity(sections_size);
-    let mut reader = Cursor::new(&mmap[payload_header_start - sections_size..payload_header_start]);
+    let mut reader = BufReader::with_capacity(
+        DCtx::in_size(),
+        &mmap[payload_header_start - sections_size..payload_header_start],
+    );
     let mut decoder = Decoder::new(&mut reader).unwrap();
     copy(&mut decoder, &mut sections)
         .unwrap_or_else(|e| panic!("couldn't decompress payload sections: {}", e));
@@ -307,6 +316,22 @@ pub fn decompress(
     }
 
     if should_extract {
+        // prefetch file memory
+        #[cfg(windows)]
+        unsafe {
+            let mut memory = WIN32_MEMORY_RANGE_ENTRY {
+                VirtualAddress: (mmap.as_ptr() as usize + files_start) as *mut _,
+                NumberOfBytes:  (mmap.len() - files_start) as _,
+            };
+            let result = PrefetchVirtualMemory(GetCurrentProcess(), 1, &mut memory as *mut _, 0);
+            if result == 0 {
+                eprintln!(
+                    "failed to prefetch memory: {}",
+                    std::io::Error::last_os_error()
+                );
+            }
+        }
+
         // create directories
         if show_information >= 2 {
             println!("creating directories...");
