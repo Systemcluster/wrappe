@@ -23,7 +23,7 @@ mod args;
 use args::*;
 
 #[derive(Parser)]
-#[clap(about, version)]
+#[clap(about)]
 pub struct Args {
     /// Platform to pack for (see --list-runners for available options)
     #[arg(short = 'r', long, default_value = "native")]
@@ -74,6 +74,10 @@ pub struct Args {
     /// Command line arguments to pass to the executable
     #[arg(last = true)]
     arguments:        Vec<String>,
+    /// Print version
+    #[arg(short = 'V', long)]
+    #[allow(dead_code)]
+    version:          bool,
 }
 
 fn main() {
@@ -81,6 +85,21 @@ fn main() {
 
     if std::env::args().any(|arg| arg == "-l" || arg == "--list-runners") {
         list_runners();
+        std::process::exit(0);
+    }
+
+    println!(
+        "{}",
+        style(format!(
+            "{} {}",
+            env!("CARGO_PKG_NAME"),
+            env!("CARGO_PKG_VERSION"),
+        ))
+        .bold()
+        .bright(),
+    );
+
+    if std::env::args().any(|arg| arg == "-V" || arg == "--version") {
         std::process::exit(0);
     }
 
