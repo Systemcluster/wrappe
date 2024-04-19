@@ -1,5 +1,5 @@
 use std::{
-    env::current_exe,
+    env::{current_exe, var_os},
     fs::{read_link, File},
     io::Write,
     mem::size_of,
@@ -101,8 +101,12 @@ fn main() {
         );
     }
 
-    let show_information = info.show_information;
+    let mut show_information = info.show_information;
     let show_console = info.show_console;
+
+    if show_information < 2 && var_os("STARTPE_FORCE_VERBOSE").is_some() {
+        show_information = 2;
+    }
 
     #[cfg(not(windows))]
     let console_attached = false;
