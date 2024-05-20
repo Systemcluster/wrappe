@@ -29,7 +29,7 @@ jobs:
         os:
           - ubuntu-latest
         toolchain:
-          - stable
+          - 1.77.2
 
     steps:
       - name: Checkout source
@@ -71,7 +71,7 @@ jobs:
         os:
           - ubuntu-latest
         toolchain:
-          - stable
+          - 1.77.2
 
     env:
       WRAPPE_TARGETS: "aarch64-apple-darwin;x86_64-apple-darwin;x86_64-pc-windows-gnu;x86_64-unknown-linux-musl"

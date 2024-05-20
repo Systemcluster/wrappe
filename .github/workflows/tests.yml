@@ -33,7 +33,7 @@ jobs:
           - windows-latest
           - macos-latest
         toolchain:
-          - stable
+          - 1.77.2
 
     env:
       RUST_BACKTRACE: full
