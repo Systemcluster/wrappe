@@ -32,6 +32,9 @@ use permissions::*;
 mod versioning;
 use versioning::*;
 
+#[cfg(feature = "prefetch")]
+mod prefetch;
+
 fn main() {
     set_hook(Box::<_>::new(move |panic| {
         if let Some(message) = panic.payload().downcast_ref::<&str>() {

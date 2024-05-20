@@ -15,15 +15,7 @@ use twox_hash::XxHash64;
 use zerocopy::Ref;
 use zstd::{dict::DecoderDictionary, zstd_safe::DCtx, Decoder};
 
-#[cfg(windows)]
-use winapi::um::{
-    memoryapi::PrefetchVirtualMemory, memoryapi::WIN32_MEMORY_RANGE_ENTRY,
-    processthreadsapi::GetCurrentProcess,
-};
-
-use crate::types::*;
-
-use crate::versioning::*;
+use crate::{types::*, versioning::*};
 
 pub const HASH_SEED: u64 = 1246736989840;
 pub const LOCK_FILE: &str = "._wrappe_lock_";
@@ -316,20 +308,15 @@ pub fn decompress(
     }
 
     if should_extract {
-        // prefetch file memory
-        #[cfg(windows)]
-        unsafe {
-            let mut memory = WIN32_MEMORY_RANGE_ENTRY {
-                VirtualAddress: (mmap.as_ptr() as usize + files_start) as *mut _,
-                NumberOfBytes:  (mmap.len() - files_start) as _,
-            };
-            let result = PrefetchVirtualMemory(GetCurrentProcess(), 1, &mut memory as *mut _, 0);
-            if result == 0 {
-                eprintln!(
-                    "failed to prefetch memory: {}",
-                    std::io::Error::last_os_error()
-                );
+        #[cfg(feature = "prefetch")]
+        let mut prefetch_handle = None;
+        #[cfg(feature = "prefetch")]
+        // prefetch memory mapped data if it is larger than 512 MB
+        if mmap.len() - files_start > 512 * 1024 * 1024 {
+            if show_information >= 2 {
+                println!("prefetching memory...");
             }
+            prefetch_handle = crate::prefetch::prefetch_memory(mmap, files_start);
         }
 
         // create directories
@@ -515,6 +502,14 @@ pub fn decompress(
         }
 
         set_version(unpack_dir, version);
+
+        #[cfg(feature = "prefetch")]
+        if let Some(prefetch_result) = prefetch_handle {
+            let _ = prefetch_result
+                .join()
+                .map_err(|e| eprintln!("failed to join prefetch thread: {:?}", e))
+                .map(|r| r.map_err(|e| eprintln!("failed to prefetch memory: {}", e)));
+        }
     }
 
     should_extract
