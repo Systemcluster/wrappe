@@ -8,6 +8,9 @@ use std::{
     time::Duration,
 };
 
+#[cfg(windows)]
+use std::os::windows::fs::OpenOptionsExt;
+
 use filetime::{set_file_times, set_symlink_file_times, FileTime};
 use fslock::LockFile;
 use rayon::prelude::*;
@@ -215,7 +218,13 @@ pub fn decompress(
             }
             if verification == 2 {
                 // verify checksums
-                let target = File::open(&path);
+                #[cfg(windows)]
+                let target = File::options()
+                    .read(true)
+                    .custom_flags(0x08000000) // FILE_FLAG_SEQUENTIAL_SCAN
+                    .open(&path);
+                #[cfg(not(windows))]
+                let target = File::options().read(true).open(&path);
                 if target.is_err() {
                     eprintln!(
                         "verification failed: couldn't open file: {}",
@@ -343,7 +352,12 @@ pub fn decompress(
             let mut reader = HashReader::new(content, XxHash64::with_seed(HASH_SEED));
             {
                 let mut reader = BufReader::with_capacity(DCtx::in_size(), &mut reader);
-                let output = File::create(&path).unwrap();
+                let output = File::options()
+                    .write(true)
+                    .create(true)
+                    .truncate(true)
+                    .open(&path)
+                    .unwrap_or_else(|e| panic!("failed to create file {}: {}", path.display(), e));
                 let mut output = BufWriter::with_capacity(DCtx::out_size(), output);
                 let decoder = if let Some(dict) = &dictionary {
                     Decoder::with_prepared_dictionary(&mut reader, dict)

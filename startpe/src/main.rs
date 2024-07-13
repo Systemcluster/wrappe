@@ -8,6 +8,9 @@ use std::{
     time::SystemTime,
 };
 
+#[cfg(windows)]
+use std::os::windows::fs::OpenOptionsExt;
+
 #[cfg(any(unix, target_os = "redox"))]
 use std::os::unix::process::CommandExt;
 #[cfg(not(any(unix, target_os = "redox")))]
@@ -66,7 +69,17 @@ fn main() {
     while let Ok(link) = read_link(&exe) {
         exe = link;
     }
-    let file = File::open(&exe).expect("couldn't open current executable");
+    #[cfg(windows)]
+    let file = File::options()
+        .read(true)
+        .custom_flags(0x10000000) // FILE_FLAG_RANDOM_ACCESS
+        .open(&exe)
+        .expect("couldn't open current executable");
+    #[cfg(not(windows))]
+    let file = File::options()
+        .read(true)
+        .open(&exe)
+        .expect("couldn't open current executable");
 
     let mmap = unsafe {
         MmapOptions::new()
