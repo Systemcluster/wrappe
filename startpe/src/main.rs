@@ -97,13 +97,20 @@ fn main() {
 
     let mut info_start = end - size_of::<StarterInfo>();
     if mmap[info_start..info_start + 8] != signature[..] {
-        if let Some(pos) = memmem::rfind(&mmap[..info_start], &signature) {
+        if let Some(pos) = memmem::rfind(&mmap[..], &signature) {
             info_start = pos;
         } else {
             panic!("couldn't find starter info")
         }
     }
 
+    if info_start + size_of::<StarterInfo>() > end {
+        panic!(
+            "starter info is too small ({} < {})",
+            end - info_start,
+            size_of::<StarterInfo>()
+        )
+    }
     let info = Ref::<_, StarterInfo>::new(&mmap[info_start..info_start + size_of::<StarterInfo>()])
         .expect("couldn't read starter info")
         .into_ref();
