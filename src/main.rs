@@ -55,6 +55,9 @@ pub struct Args {
     /// Working directory of the command (inherit, unpack, runner, command)
     #[arg(short = 'w', long, default_value = "inherit")]
     current_dir:      String,
+    /// Only allow one instance of the application to run
+    #[arg(short = 'o', long, default_value = "false")]
+    once:             bool,
     /// Build compression dictionary
     #[arg(short = 'z', long, default_value = "false")]
     build_dictionary: bool,
@@ -331,6 +334,7 @@ fn main() {
         unpack_target,
         versioning,
         unpack_directory,
+        once: if args.once { 1 } else { 0 },
         command,
         arguments,
         wrappe_format: WRAPPE_FORMAT,

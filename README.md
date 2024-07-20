@@ -69,6 +69,8 @@ Options:
         Show or attach to a console window (auto, always, never, attach) [default: auto]
   -w, --current-dir <CURRENT_DIR>
         Working directory of the command (inherit, unpack, runner, command) [default: inherit]
+  -o, --once
+        Allow only one running instance
   -z, --build-dictionary
         Build compression dictionary
   -l, --list-runners
@@ -126,6 +128,8 @@ This option specifies the versioning strategy. Accepted values are:
 
 It defaults to `sidebyside`. The version is determined by a unique identifier generated during the packing process or specified with the [`version-string`](#version-string) option.
 
+Using `replace` or `none` might cause unpacking to fail if another instance of the packed executable is already running unless the [`once`](#once) option is set.
+
 #### verification
 
 This option specifies the verification of the unpacked payload before skipping extraction. Accepted values are:
@@ -172,6 +176,12 @@ This option changes the working directory of the packed executable. Accepted val
 
 It defaults to `inherit`.
 
+#### once
+
+This option prevents multiple instances of the packed executable from running at the same time. When set, the runner will check for running processes on the system and will exit immediately if a running instance of the executable is found during startup.
+
+This option currently only affects Windows and Linux runners. On Windows, if the packed executable is a GUI application, the runner will bring its window into the foreground and activate it.
+
 #### build-dictionary
 
 This option builds a zstandard compression dictionary from the input files and stores it in the output executable. This can improve the compression ratio when many small and similar files are packed.
@@ -182,11 +192,11 @@ Building a dictionary can increase the packing time and can in some cases negati
 
 ## Performance
 
-Wrappe is optimized for compression ratio and decompression speed, generally matching or outperforming other packers in terms of both. Packed files are decompressed from the memory-mapped executable directly to disk in parallel, while extraction is skipped when the files are already unpacked. This enables fast startup of packed executables with minimal overhead.
+Wrappe is optimized for compression ratio and decompression speed, generally matching or outperforming other packers in terms of both. It uses a custom metadata format designed for parallel iteration and decompression and compact storage of file information. Packed files are concurrently decompressed from the memory-mapped executable directly to disk, while extraction is skipped when the files are already unpacked to enable fast startup of packed executables with minimal overhead.
 
-> As an example, a 400 MB PyInstaller one-directory output with 1500 files packed with wrappe at maximum compression level results in a 100 MB executable that unpacks and starts in around 500 milliseconds on a modern system on the first run and instantly on subsequent runs. This is around 50% faster and only 5% larger than the same project packed by PyInstaller in one-file mode with UPX compression, which unpacks and loads into memory on every run.
+> As an example, a 400 MB PyInstaller one-directory output with 1500 files packed with wrappe at maximum compression level results in a 100 MB executable that unpacks and starts in around 500 milliseconds on a modern Windows system on the first run and instantly on subsequent runs. This is around 50% faster and only 5% larger than the same project packed by PyInstaller in one-file mode with UPX compression, which unpacks and loads into memory on every run.
 
-Generally, on a reasonably modern system, the decompression speed of wrappe is limited by the read and write speed of the storage medium.
+Generally, on a reasonably modern system, the decompression speed of wrappe is limited by the read and write speed of the system and storage medium.
 
 ## Compilation
 

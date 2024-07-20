@@ -16,8 +16,9 @@ path = "src/main.rs"
 
 [features]
 
-default = ["prefetch"]
+default = ["prefetch", "once"]
 prefetch = []
+once = ["dep:procfs"]
 
 [profile.release]
 
@@ -34,14 +35,27 @@ strip = "symbols"
 
 dirs = "5.0.1"
 filetime = "0.2.23"
-fslock = "0.2.1"
-memchr = "2.7.2"
+fslock-guard = "0.1.4"
+memchr = "2.7.4"
 memmap2 = "0.9.4"
 rayon = "1.10.0"
 twox-hash = { version = "1.6.3", default-features = false }
-zerocopy = { version = "0.7.32", features = ["derive"] }
-zstd = { version = "0.13.1", default-features = false, features = [] }
+zerocopy = { version = "0.7.35", features = ["derive"] }
+zstd = { version = "0.13.2", default-features = false, features = [] }
 
 [target.'cfg(windows)'.dependencies]
 
-winapi = { version = "0.3.9", features = ["wincon", "libloaderapi"] }
+windows-sys = { version = "0.52.0", features = [
+  "Win32_Foundation",
+  "Win32_System_Console",
+  "Win32_System_LibraryLoader",
+  "Win32_System_Threading",
+  "Win32_System_Diagnostics",
+  "Win32_System_Diagnostics_ToolHelp",
+  "Win32_System_ProcessStatus",
+  "Win32_UI_WindowsAndMessaging",
+] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+
+procfs = { version = "0.16.0", default-features = false, optional = true }

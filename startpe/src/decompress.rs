@@ -12,7 +12,6 @@ use std::{
 use std::os::windows::fs::OpenOptionsExt;
 
 use filetime::{set_file_times, set_symlink_file_times, FileTime};
-use fslock::LockFile;
 use rayon::prelude::*;
 use twox_hash::XxHash64;
 use zerocopy::Ref;
@@ -196,12 +195,6 @@ pub fn decompress(
             section_hash, expected
         );
     }
-
-    create_dir_all(unpack_dir)
-        .unwrap_or_else(|e| panic!("couldn't create directory {}: {}", unpack_dir.display(), e));
-
-    let mut lockfile = LockFile::open(&unpack_dir.join(LOCK_FILE)).unwrap();
-    lockfile.lock().unwrap();
 
     // verify files
     if verification > 0 && !should_extract && file_sections > 0 {

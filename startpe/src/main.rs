@@ -1,6 +1,6 @@
 use std::{
     env::{current_exe, var_os},
-    fs::{read_link, File},
+    fs::{create_dir_all, read_link, File},
     io::Write,
     mem::size_of,
     panic::set_hook,
@@ -17,8 +17,9 @@ use std::os::unix::process::CommandExt;
 use std::process::Stdio;
 
 #[cfg(windows)]
-use winapi::um::wincon::{AttachConsole, ATTACH_PARENT_PROCESS};
+use windows_sys::Win32::System::Console::{AttachConsole, ATTACH_PARENT_PROCESS};
 
+use fslock_guard::LockFileGuard;
 use memchr::memmem;
 use memmap2::MmapOptions;
 use zerocopy::Ref;
@@ -37,6 +38,9 @@ use versioning::*;
 
 #[cfg(feature = "prefetch")]
 mod prefetch;
+
+#[cfg(feature = "once")]
+mod once;
 
 fn main() {
     set_hook(Box::<_>::new(move |panic| {
@@ -194,18 +198,46 @@ fn main() {
         println!("target directory: {}", unpack_dir.display());
     }
 
-    let run_path = &unpack_dir.join(
-        std::str::from_utf8(
-            &info.command[0..(info
-                .command
-                .iter()
-                .position(|&c| c == b'\0')
-                .unwrap_or(info.command.len()))],
-        )
-        .unwrap(),
-    );
+    let command_name = std::str::from_utf8(
+        &info.command[0..(info
+            .command
+            .iter()
+            .position(|&c| c == b'\0')
+            .unwrap_or(info.command.len()))],
+    )
+    .unwrap();
+    let run_path = &unpack_dir.join(command_name);
     if show_information >= 2 {
         println!("runpath: {}", run_path.display());
+    }
+
+    create_dir_all(&unpack_dir)
+        .unwrap_or_else(|e| panic!("couldn't create directory {}: {}", unpack_dir.display(), e));
+
+    let lockfile = if info.once == 1 {
+        let lockfile = LockFileGuard::try_lock(unpack_dir.join(LOCK_FILE))
+            .unwrap_or_else(|e| panic!("couldn't lock file: {}", e));
+        if lockfile.is_none() {
+            println!("another instance is already unpacking, exiting...");
+            return;
+        }
+        lockfile.unwrap()
+    } else {
+        LockFileGuard::lock(unpack_dir.join(LOCK_FILE)).unwrap_or_else(|e| {
+            panic!("couldn't lock file: {}", e);
+        })
+    };
+
+    #[cfg(feature = "once")]
+    if info.once == 1 {
+        if show_information >= 2 {
+            println!("checking for running processes...");
+        }
+        let running = once::check_instance(run_path).unwrap();
+        if running {
+            println!("another instance is already running, exiting...");
+            return;
+        }
     }
 
     let should_extract = match info.versioning {
@@ -244,6 +276,8 @@ fn main() {
             set_executable_permissions(run_path);
         }
     }
+
+    drop(lockfile);
 
     let baked_arguments = std::str::from_utf8(
         &info.arguments[0..(info
