@@ -53,6 +53,11 @@ fn main() {
         }
         #[cfg(windows)]
         {
+            use std::sync::atomic::{AtomicBool, Ordering};
+            static WRITTEN: AtomicBool = AtomicBool::new(false);
+            if WRITTEN.swap(true, Ordering::Relaxed) {
+                return;
+            }
             let now = SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap_or_default();
