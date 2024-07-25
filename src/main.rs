@@ -124,6 +124,48 @@ fn main() {
     let current_dir = get_current_dir(&args.current_dir);
 
     let mut show_console = get_show_console(&args.console, runner_name);
+    let once = if args.once { 1 } else { 0 };
+
+    if (versioning == 1 || versioning == 2) && once == 0 {
+        println!(
+            "{} {} {} {} {}",
+            style("note: chosen versioning").yellow().dim(),
+            style(&args.versioning).yellow().bold(),
+            style("without option").yellow().dim(),
+            style("once").yellow().bold(),
+            style("can cause unpacking to fail while the application is already running")
+                .yellow()
+                .dim(),
+        );
+    }
+    if versioning == 2 && verification != 0 {
+        println!(
+            "{} {} {}",
+            style("note: verification will be ignored with")
+                .yellow()
+                .dim(),
+            style(&args.versioning).yellow().bold(),
+            style("versioning").yellow().dim(),
+        );
+    }
+    if once == 1 && (!runner_name.contains("windows") || !runner_name.contains("linux")) {
+        println!(
+            "{} {} {}",
+            style("note: option").yellow().dim(),
+            style("once").yellow().bold(),
+            style("is only supported for Windows and Linux runners")
+                .yellow()
+                .dim(),
+        );
+    }
+    if show_console != 2 && !runner_name.contains("windows") {
+        println!(
+            "{}",
+            style("note: setting console mode is only supported for Windows runners")
+                .yellow()
+                .dim(),
+        );
+    }
 
     if output == source {
         println!(
@@ -296,7 +338,7 @@ fn main() {
     );
     println!(
         "      {}{}",
-        Emoji("⌛ ", ""),
+        Emoji("📍 ", ""),
         style(format!(
             "took {:.2}s",
             now.elapsed().unwrap_or_default().as_secs_f64()
@@ -334,7 +376,7 @@ fn main() {
         unpack_target,
         versioning,
         unpack_directory,
-        once: if args.once { 1 } else { 0 },
+        once,
         command,
         arguments,
         wrappe_format: WRAPPE_FORMAT,

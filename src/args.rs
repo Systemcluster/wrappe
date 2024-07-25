@@ -119,6 +119,10 @@ pub fn get_version(version: Option<&str>) -> String {
             );
             std::process::exit(-1);
         }
+        if version.is_empty() {
+            println!("{}", style("version specifier is empty").red());
+            std::process::exit(-1);
+        }
         version.chars().collect::<Vec<_>>()
     } else {
         Alphanumeric
