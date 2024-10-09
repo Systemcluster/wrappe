@@ -120,9 +120,10 @@ fn main() {
             size_of::<StarterInfo>()
         )
     }
-    let info = Ref::<_, StarterInfo>::new(&mmap[info_start..info_start + size_of::<StarterInfo>()])
-        .expect("couldn't read starter info")
-        .into_ref();
+    let info = Ref::into_ref(
+        Ref::<_, StarterInfo>::from_bytes(&mmap[info_start..info_start + size_of::<StarterInfo>()])
+            .expect("couldn't read starter info"),
+    );
     if info.signature != signature[..] {
         panic!("file signature is invalid")
     }

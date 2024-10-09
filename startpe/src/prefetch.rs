@@ -2,24 +2,25 @@ use std::{io::Result, thread::JoinHandle};
 
 #[cfg(windows)]
 pub fn prefetch_memory(mmap: &[u8], offset: usize) -> Option<JoinHandle<Result<()>>> {
-    use core::ffi::c_void;
+    use core::{ffi::c_void, ptr::null_mut};
     use windows_sys::{
-        core::PCSTR,
         Win32::{
             Foundation::HANDLE,
             System::{
-                LibraryLoader::{GetProcAddress, LoadLibraryExA, LOAD_LIBRARY_SEARCH_SYSTEM32},
+                LibraryLoader::{GetProcAddress, LOAD_LIBRARY_SEARCH_SYSTEM32, LoadLibraryExA},
                 Threading::GetCurrentProcess,
             },
         },
+        core::PCSTR,
     };
 
     let virtual_address = mmap.as_ptr() as usize + offset;
     let number_of_bytes = mmap.len() - offset;
     Some(std::thread::spawn(move || {
         fn get_function(library: PCSTR, function: PCSTR) -> Result<*const c_void> {
-            let module = unsafe { LoadLibraryExA(library, 0, LOAD_LIBRARY_SEARCH_SYSTEM32) };
-            if module == 0 {
+            let module =
+                unsafe { LoadLibraryExA(library, null_mut(), LOAD_LIBRARY_SEARCH_SYSTEM32) };
+            if module.is_null() {
                 Err(std::io::Error::last_os_error())?;
             }
             let address = unsafe { GetProcAddress(module, function) };
@@ -42,6 +43,7 @@ pub fn prefetch_memory(mmap: &[u8], offset: usize) -> Option<JoinHandle<Result<(
         }
         // Dynamically load PrefetchVirtualMemory since it is only available on Windows 8 and later
         let prefetch_fn = unsafe {
+            #[allow(clippy::manual_c_str_literals)]
             match get_function(
                 b"kernel32.dll\0".as_ptr() as _,
                 b"PrefetchVirtualMemory\0".as_ptr() as _,
@@ -55,7 +57,7 @@ pub fn prefetch_memory(mmap: &[u8], offset: usize) -> Option<JoinHandle<Result<(
             NumberOfBytes:  number_of_bytes as _,
         };
         let process = unsafe { GetCurrentProcess() };
-        if process == 0 {
+        if process.is_null() {
             Err(std::io::Error::last_os_error())?;
         }
         let result = unsafe { prefetch_fn(process, 1, &mut memory as *mut _, 0) };

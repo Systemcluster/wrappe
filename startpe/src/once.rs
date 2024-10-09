@@ -2,23 +2,24 @@ use std::path::Path;
 
 #[cfg(windows)]
 pub fn check_instance(run_path: &Path) -> Result<bool, std::io::Error> {
+    use core::ffi::c_void;
     use std::{ffi::OsString, os::windows::ffi::OsStringExt};
     use windows_sys::Win32::{
         System::{
             Diagnostics::ToolHelp::{
-                CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
+                CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW,
                 TH32CS_SNAPPROCESS,
             },
             Threading::{
-                OpenProcess, QueryFullProcessImageNameW, PROCESS_QUERY_LIMITED_INFORMATION,
+                OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
             },
         },
         UI::WindowsAndMessaging::EnumWindows,
     };
 
-    unsafe extern "system" fn enum_windows_proc(hwnd: isize, lparam: isize) -> i32 {
+    unsafe extern "system" fn enum_windows_proc(hwnd: *mut c_void, lparam: isize) -> i32 {
         use windows_sys::Win32::UI::WindowsAndMessaging::{
-            GetWindowThreadProcessId, SetForegroundWindow, ShowWindow, SW_SHOW,
+            GetWindowThreadProcessId, SW_SHOW, SetForegroundWindow, ShowWindow,
         };
         let mut process_id = 0;
         unsafe {
@@ -37,7 +38,7 @@ pub fn check_instance(run_path: &Path) -> Result<bool, std::io::Error> {
     }
 
     let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
-    if snapshot == 0 {
+    if snapshot.is_null() {
         return Err(std::io::Error::last_os_error());
     }
     let mut entry = unsafe { std::mem::zeroed::<PROCESSENTRY32W>() };

@@ -1,11 +1,14 @@
 [package]
 
+name = "wrappe"
+description = "Packer for creating self-contained single-binary applications from executables and directories"
+version = "1.0.3"
+license = "BSD-2-Clause"
 authors = ["Christian Sdunek <me@systemcluster.me>"]
-build = "build.rs"
 categories = ["compression", "filesystem", "command-line-utilities"]
 keywords = ["compression", "binary", "executable", "packer", "filesystem"]
-description = "Packer for creating self-contained single-binary applications from executables and directories"
 edition = "2021"
+rust-version = "1.77.2"
 include = [
   "Cargo.toml",
   "src/**/*",
@@ -13,11 +16,9 @@ include = [
   "build.rs",
   "LICENSE",
 ]
-license = "BSD-2-Clause"
-name = "wrappe"
+build = "build.rs"
 readme = "README.md"
 repository = "https://github.com/Systemcluster/wrappe"
-version = "1.0.3"
 
 [[bin]]
 
@@ -49,25 +50,25 @@ opt-level = 0
 
 [dependencies]
 
-staticfilemap = { version = "0.7.0", default-features = false, features = ["zstd", "multithread"] }
-editpe = { version = "0.1.0", default-features = false }
+staticfilemap = { version = "0.8.0", default-features = false, features = ["zstd", "multithread"] }
+editpe = { version = "0.2.1", default-features = false, features = ["std"] }
 
-clap = { version = "4.5.13", features = ["std", "color", "suggestions", "derive", "unicode", "wrap_help"] }
+clap = { version = "4.5.21", features = ["std", "color", "suggestions", "derive", "unicode", "wrap_help"] }
 color-backtrace = "0.6.1"
 console = "0.15.8"
-indicatif = "0.17.8"
+indicatif = "0.17.9"
 jwalk = "0.8.1"
 num_cpus = "1.16.0"
 path-slash = "0.2.1"
 rand = "0.8.5"
 rayon = "1.10.0"
-sysinfo = "0.31.2"
+sysinfo = "0.32.0"
 twox-hash = { version = "1.6.3", default-features = false }
-zerocopy = "0.7.35"
+zerocopy = "0.8.10"
 zstd = { version = "0.13.2", default-features = false, features = ["zstdmt", "zdict_builder"] }
 
 [build-dependencies]
 
 jwalk = "0.8.1"
-which = "6.0.2"
-tar = "0.4.41"
+which = "7.0.0"
+tar = "0.4.43"

@@ -1,7 +1,7 @@
 use std::{
-    fs::{create_dir_all, read_link, remove_dir, remove_file, File},
+    fs::{File, create_dir_all, read_link, remove_dir, remove_file},
     hash::Hasher,
-    io::{copy, sink, BufReader, BufWriter, Read, Result},
+    io::{BufReader, BufWriter, Read, Result, copy, sink},
     mem::size_of,
     path::{Path, PathBuf},
     thread::sleep,
@@ -11,11 +11,11 @@ use std::{
 #[cfg(windows)]
 use std::os::windows::fs::OpenOptionsExt;
 
-use filetime::{set_file_times, set_symlink_file_times, FileTime};
-use rayon::prelude::*;
+use filetime::{FileTime, set_file_times, set_symlink_file_times};
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use twox_hash::XxHash64;
 use zerocopy::Ref;
-use zstd::{dict::DecoderDictionary, zstd_safe::DCtx, Decoder};
+use zstd::{Decoder, dict::DecoderDictionary, zstd_safe::DCtx};
 
 use crate::{types::*, versioning::*};
 
@@ -56,9 +56,10 @@ pub fn decompress(
 ) -> bool {
     // read payload header sections
     let payload_header_start = mmap.len() - size_of::<PayloadHeader>();
-    let payload_header = Ref::<_, PayloadHeader>::new(&mmap[payload_header_start..])
-        .expect("couldn't read payload header")
-        .into_ref();
+    let payload_header = Ref::into_ref(
+        Ref::<_, PayloadHeader>::from_bytes(&mmap[payload_header_start..])
+            .expect("couldn't read payload header"),
+    );
 
     let directory_sections = payload_header.directory_sections as usize;
     let file_sections = payload_header.file_sections as usize;
@@ -117,12 +118,12 @@ pub fn decompress(
             |mut directories, (i, section)| {
                 let section_start = directory_sections_start + i * size_of::<DirectorySection>();
                 section_hasher.write(section);
-                let section = Ref::<_, DirectorySection>::new(
-                    &sections[section_start..section_start + size_of::<DirectorySection>()],
-                )
-                .expect("couldn't read payload header")
-                .into_ref();
-
+                let section = Ref::into_ref(
+                    Ref::<_, DirectorySection>::from_bytes(
+                        &sections[section_start..section_start + size_of::<DirectorySection>()],
+                    )
+                    .expect("couldn't read payload header"),
+                );
                 directories.push(
                     directories[section.parent as usize].join(
                         std::str::from_utf8(
@@ -144,11 +145,12 @@ pub fn decompress(
         .map(|(i, section)| {
             let section_start = file_sections_start + i * size_of::<FileSectionHeader>();
             section_hasher.write(section);
-            let section = Ref::<_, FileSectionHeader>::new(
-                &sections[section_start..section_start + size_of::<FileSectionHeader>()],
-            )
-            .expect("couldn't read payload header")
-            .into_ref();
+            let section = Ref::into_ref(
+                Ref::<_, FileSectionHeader>::from_bytes(
+                    &sections[section_start..section_start + size_of::<FileSectionHeader>()],
+                )
+                .expect("couldn't read payload header"),
+            );
             (
                 section,
                 std::str::from_utf8(
@@ -168,11 +170,12 @@ pub fn decompress(
         .map(|(i, section)| {
             let section_start = symlink_sections_start + i * size_of::<SymlinkSection>();
             section_hasher.write(section);
-            let section = Ref::<_, SymlinkSection>::new(
-                &sections[section_start..section_start + size_of::<SymlinkSection>()],
-            )
-            .expect("couldn't read payload header")
-            .into_ref();
+            let section = Ref::into_ref(
+                Ref::<_, SymlinkSection>::from_bytes(
+                    &sections[section_start..section_start + size_of::<SymlinkSection>()],
+                )
+                .expect("couldn't read payload header"),
+            );
             (
                 section,
                 std::str::from_utf8(
@@ -389,7 +392,7 @@ pub fn decompress(
             #[cfg(any(unix, target_os = "redox"))]
             {
                 use ::std::{
-                    fs::{set_permissions, Permissions},
+                    fs::{Permissions, set_permissions},
                     os::unix::prelude::*,
                 };
                 let mode = file.mode;

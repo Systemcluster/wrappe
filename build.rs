@@ -1,6 +1,6 @@
 use std::{
     env::{var, vars},
-    fs::{create_dir_all, File},
+    fs::{File, create_dir_all},
     ops::Deref,
     path::{Path, PathBuf},
     process::Command,

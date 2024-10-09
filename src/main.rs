@@ -137,9 +137,7 @@ fn main() {
             style(&args.versioning).yellow().bold(),
             style("without option").yellow().dim(),
             style("once").yellow().bold(),
-            style("can cause unpacking to fail while the application is already running")
-                .yellow()
-                .dim(),
+            style("can cause unpacking to fail while the application is already running").dim(),
         );
     }
     if versioning == 2 && verification != 0 {
@@ -152,14 +150,15 @@ fn main() {
             style("versioning").yellow().dim(),
         );
     }
-    if once == 1 && (!runner_name.contains("windows") || !runner_name.contains("linux")) {
+    if once == 1 && !(runner_name.contains("windows") || runner_name.contains("linux")) {
         println!(
-            "{} {} {}",
+            "{} {} {} {}",
             style("note: option").yellow().dim(),
             style("once").yellow().bold(),
             style("is only supported for Windows and Linux runners")
                 .yellow()
                 .dim(),
+            style(format!("(target: {})", runner_name)).yellow().dim(),
         );
     }
     if show_console != 2 && !runner_name.contains("windows") {

@@ -3,7 +3,7 @@ use std::path::Path;
 #[cfg(any(unix, target_os = "redox"))]
 pub fn set_executable_permissions(path: &Path) {
     use ::std::{
-        fs::{metadata, set_permissions, Permissions},
+        fs::{Permissions, metadata, set_permissions},
         os::unix::prelude::*,
     };
     let meta = metadata(path);

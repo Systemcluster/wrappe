@@ -1,4 +1,4 @@
-pub use zerocopy::{FromBytes, FromZeroes};
+pub use zerocopy::{FromBytes, Immutable, KnownLayout};
 
 pub const WRAPPE_FORMAT: u8 = 204;
 pub const WRAPPE_SIGNATURE_1: [u8; 6] = [0x50, 0x45, 0x33, 0x44, 0x00, 0x00];
@@ -7,7 +7,7 @@ pub const NAME_SIZE: usize = 128;
 pub const ARGS_SIZE: usize = 512;
 
 #[repr(C, packed)]
-#[derive(FromBytes, FromZeroes)]
+#[derive(FromBytes, Immutable, KnownLayout)]
 pub struct StarterInfo {
     pub signature:        [u8; 8],
     pub show_console:     u8,
@@ -26,7 +26,7 @@ pub struct StarterInfo {
 }
 
 #[repr(C, packed)]
-#[derive(FromBytes, FromZeroes)]
+#[derive(FromBytes, Immutable, KnownLayout)]
 pub struct PayloadHeader {
     pub directory_sections: u64,
     pub file_sections:      u64,
@@ -43,13 +43,13 @@ impl PayloadHeader {
     }
 }
 #[repr(C, packed)]
-#[derive(FromBytes, FromZeroes)]
+#[derive(FromBytes, Immutable, KnownLayout)]
 pub struct DirectorySection {
     pub name:   [u8; NAME_SIZE],
     pub parent: u32,
 }
 #[repr(C, packed)]
-#[derive(FromBytes, FromZeroes)]
+#[derive(FromBytes, Immutable, KnownLayout)]
 pub struct FileSectionHeader {
     pub position:              u64,
     pub size:                  u64,
@@ -65,7 +65,7 @@ pub struct FileSectionHeader {
     pub readonly:              u8,
 }
 #[repr(C, packed)]
-#[derive(FromBytes, FromZeroes)]
+#[derive(FromBytes, Immutable, KnownLayout)]
 pub struct SymlinkSection {
     pub name:                  [u8; NAME_SIZE],
     pub parent:                u32,

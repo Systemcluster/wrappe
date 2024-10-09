@@ -1,12 +1,12 @@
 use std::{
     env::temp_dir,
-    fs::{read_link, remove_file, symlink_metadata, File},
+    fs::{File, read_link, remove_file, symlink_metadata},
     hash::Hasher,
-    io::{copy, BufReader, Cursor, Read, Result, Seek, Write},
+    io::{BufReader, Cursor, Read, Result, Seek, Write, copy},
     path::Path,
     sync::{
-        atomic::{AtomicU64, Ordering},
         Arc, Mutex,
+        atomic::{AtomicU64, Ordering},
     },
     time::SystemTime,
 };
@@ -20,7 +20,7 @@ use rand::{
 use rayon::prelude::*;
 use sysinfo::System;
 use twox_hash::XxHash64;
-use zstd::{dict::EncoderDictionary, Encoder};
+use zstd::{Encoder, dict::EncoderDictionary};
 
 use crate::types::*;
 
