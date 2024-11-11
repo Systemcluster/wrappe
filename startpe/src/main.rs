@@ -1,6 +1,6 @@
 use std::{
-    env::{current_exe, var_os},
-    fs::{create_dir_all, read_link, File},
+    env::{self, current_exe, var_os},
+    fs::{create_dir_all, read_link, remove_dir, remove_dir_all, File},
     io::Write,
     mem::size_of,
     panic::set_hook,
@@ -195,7 +195,8 @@ fn main() {
         2 => std::env::current_dir().unwrap(),
         _ => panic!("invalid unpack target"),
     };
-    let mut unpack_dir = unpack_root.join(unpack_dir_name);
+    let extract_dir = unpack_root.join(unpack_dir_name);
+    let mut unpack_dir = extract_dir.clone();
     if info.versioning == 0 {
         unpack_dir = unpack_dir.join(version);
     }
@@ -243,6 +244,17 @@ fn main() {
             println!("another instance is already running, exiting...");
             return;
         }
+    }
+
+    let is_nocleanup: bool;
+    if let Ok(value) = env::var("WRAPPE_NO_CLEANUP") {
+        is_nocleanup = value == "1"
+    } else {
+        is_nocleanup = match info.nocleanup {
+            0 => true,
+            1 => false,
+            _ => false,
+        };
     }
 
     let should_extract = match info.versioning {
@@ -329,32 +341,43 @@ fn main() {
         let _ = std::io::stdout().flush();
     }
 
+    let mut exit_code = 1;
     let mut command = Command::new(run_path);
     command.args(baked_arguments);
     command.args(forwarded_arguments);
     command.env("WRAPPE_UNPACK_DIR", unpack_dir.as_os_str());
     command.env("WRAPPE_LAUNCH_DIR", launch_dir.as_os_str());
     command.current_dir(current_dir);
-    #[cfg(any(unix, target_os = "redox"))]
-    {
-        let e = command.exec();
-        panic!("failed to run {}: {}", run_path.display(), e);
-    }
-    #[cfg(not(any(unix, target_os = "redox")))]
-    {
-        if show_console == 0 || (show_console == 2 && !console_attached) {
-            command.stdout(Stdio::null());
-            command.stderr(Stdio::null());
-            command.stdin(Stdio::null());
+
+    if is_nocleanup {
+        #[cfg(any(unix, target_os = "redox"))]
+        {
+            let e = command.exec();
+            panic!("failed to run {}: {}", run_path.display(), e);
         }
-        let mut child = command
-            .spawn()
-            .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
-        if show_console == 1 || (show_console == 2 && console_attached) {
-            let result = child
-                .wait()
+        #[cfg(not(any(unix, target_os = "redox")))]
+        {
+            if show_console == 0 || (show_console == 2 && !console_attached) {
+                command.stdout(Stdio::null());
+                command.stderr(Stdio::null());
+                command.stdin(Stdio::null());
+            }
+            let mut child = command.spawn()
                 .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
-            std::process::exit(result.code().unwrap_or(0))
+            if show_console == 1 || (show_console == 2 && console_attached) {
+                let status = child.wait()
+                    .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
+                exit_code = status.code().unwrap_or(1)
+            }
         }
+    } else {
+        let mut child = command.spawn()
+            .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
+        let status = child.wait()
+            .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
+        let _ = remove_dir_all(unpack_dir);
+        let _ = remove_dir(extract_dir);
+        exit_code = status.code().unwrap_or(1)
     }
+    std::process::exit(exit_code)
 }

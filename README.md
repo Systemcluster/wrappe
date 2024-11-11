@@ -65,6 +65,8 @@ Options:
         Version string override [default: randomly generated]
   -i, --show-information <SHOW_INFORMATION>
         Information output details (title, verbose, none) [default: title]
+  -u, --nocleanup (executable env: WRAPPE_NO_CLEANUP=1)
+          Don't cleanup extract directory
   -n, --console <CONSOLE>
         Show or attach to a console window (auto, always, never, attach) [default: auto]
   -w, --current-dir <CURRENT_DIR>
@@ -153,6 +155,9 @@ This option controls the information output of the runner. Accepted values are:
 * `none`: The runner will show no additional output.
 
 It defaults to `title`. Error information is always shown when applicable. Windows runners using the GUI subsystem will only show information output when launched from a console and this option is set to `verbose`, or a console is attached or opened through the [`console`](#console) option.
+
+#### nocleanup
+This option allows you not to delete the unpacking directory after closing the executable file. You can also set the environment variable `WRAPPE_NO_CLEANUP=1`
 
 #### console
 

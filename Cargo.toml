@@ -17,7 +17,7 @@ license = "BSD-2-Clause"
 name = "wrappe"
 readme = "README.md"
 repository = "https://github.com/Systemcluster/wrappe"
-version = "1.0.3"
+version = "1.0.4"
 
 [[bin]]
 
@@ -32,15 +32,16 @@ members = [
 ]
 
 [profile.release]
-
-codegen-units = 1
-debug = false
-debug-assertions = false
-incremental = false
-lto = "fat"
-opt-level = 's'
+lto = true
 panic = "abort"
+opt-level = "z"
 strip = "symbols"
+debug  = false
+codegen-units = 1
+
+[profile.dev]
+panic = "abort"
+opt-level = 0
 
 [dependencies]
 

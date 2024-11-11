@@ -18,6 +18,7 @@ pub struct StarterInfo {
     pub unpack_target:    u8,
     pub versioning:       u8,
     pub once:             u8,
+    pub nocleanup:        u8,
     pub wrappe_format:    u8,
     pub unpack_directory: [u8; NAME_SIZE],
     pub command:          [u8; NAME_SIZE],

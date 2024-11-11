@@ -49,6 +49,9 @@ pub struct Args {
     /// Information output details (title, verbose, none)
     #[arg(short = 'i', long, default_value = "title")]
     show_information: String,
+    /// Don't cleanup extract directory (executable env: WRAPPE_NO_CLEANUP=1)
+    #[arg(short = 'u', long, default_value = "false")]
+    nocleanup: bool,
     /// Show or attach to a console window (auto, always, never, attach)
     #[arg(short = 'n', long, default_value = "auto")]
     console:          String,
@@ -125,6 +128,7 @@ fn main() {
 
     let mut show_console = get_show_console(&args.console, runner_name);
     let once = if args.once { 1 } else { 0 };
+    let nocleanup = if args.nocleanup { 0 } else { 1 };
 
     if (versioning == 1 || versioning == 2) && once == 0 {
         println!(
@@ -372,6 +376,7 @@ fn main() {
         current_dir,
         verification,
         show_information,
+        nocleanup,
         uid: version.as_bytes().try_into().unwrap(),
         unpack_target,
         versioning,
