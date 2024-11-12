@@ -57,6 +57,8 @@ Options:
         Unpack directory target (temp, local, cwd) [default: temp]
   -d, --unpack-directory <UNPACK_DIRECTORY>
         Unpack directory name [default: inferred from input directory]
+  -u, --cleanup (executable env: WRAPPE_CLEANUP=1)
+          Cleanup unpack directory
   -v, --versioning <VERSIONING>
         Versioning strategy (sidebyside, replace, none) [default: sidebyside]
   -e, --verification <VERIFICATION>
@@ -65,8 +67,6 @@ Options:
         Version string override [default: randomly generated]
   -i, --show-information <SHOW_INFORMATION>
         Information output details (title, verbose, none) [default: title]
-  -u, --cleanup (executable env: WRAPPE_CLEANUP=1)
-          Cleanup extract directory
   -n, --console <CONSOLE>
         Show or attach to a console window (auto, always, never, attach) [default: auto]
   -w, --current-dir <CURRENT_DIR>

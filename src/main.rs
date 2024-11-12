@@ -37,6 +37,9 @@ pub struct Args {
     /// Unpack directory name [default: inferred from input directory]
     #[arg(short = 'd', long)]
     unpack_directory: Option<String>,
+    /// Cleanup unpack directory (executable env: WRAPPE_CLEANUP=1)
+    #[arg(short = 'u', long, default_value = "false")]
+    cleanup: bool,
     /// Versioning strategy (sidebyside, replace, none)
     #[arg(short = 'v', long, default_value = "sidebyside")]
     versioning:       String,
@@ -49,9 +52,6 @@ pub struct Args {
     /// Information output details (title, verbose, none)
     #[arg(short = 'i', long, default_value = "title")]
     show_information: String,
-    /// Cleanup extract directory (executable env: WRAPPE_CLEANUP=1)
-    #[arg(short = 'u', long, default_value = "false")]
-    cleanup: bool,
     /// Show or attach to a console window (auto, always, never, attach)
     #[arg(short = 'n', long, default_value = "auto")]
     console:          String,
