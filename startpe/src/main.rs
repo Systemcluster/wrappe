@@ -189,14 +189,14 @@ fn main() {
         );
     }
 
-    let unpack_root = match info.unpack_target {
+    let mut unpack_root = match info.unpack_target {
         0 => std::env::temp_dir(),
         1 => dirs::data_local_dir().unwrap(),
         2 => std::env::current_dir().unwrap(),
         _ => panic!("invalid unpack target"),
     };
-    let extract_dir = unpack_root.join(unpack_dir_name);
-    let mut unpack_dir = extract_dir.clone();
+    unpack_root = unpack_root.join(unpack_dir_name);
+    let mut unpack_dir = unpack_root.clone();
     if info.versioning == 0 {
         unpack_dir = unpack_dir.join(version);
     }
@@ -246,15 +246,11 @@ fn main() {
         }
     }
 
-    let is_nocleanup: bool;
-    if let Ok(value) = env::var("WRAPPE_NO_CLEANUP") {
-        is_nocleanup = value == "1"
+    let is_cleanup: bool;
+    if let Ok(var) = env::var("WRAPPE_CLEANUP") {
+        is_cleanup = var == "1"
     } else {
-        is_nocleanup = match info.nocleanup {
-            0 => true,
-            1 => false,
-            _ => false,
-        };
+        is_cleanup = if info.cleanup == 1 { true } else { false }
     }
 
     let should_extract = match info.versioning {
@@ -349,7 +345,15 @@ fn main() {
     command.env("WRAPPE_LAUNCH_DIR", launch_dir.as_os_str());
     command.current_dir(current_dir);
 
-    if is_nocleanup {
+    if is_cleanup {
+        let mut child = command.spawn()
+            .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
+        let status = child.wait()
+            .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
+        let _ = remove_dir_all(unpack_dir);
+        let _ = remove_dir(unpack_root);
+        exit_code = status.code().unwrap_or(1)
+    } else {
         #[cfg(any(unix, target_os = "redox"))]
         {
             let e = command.exec();
@@ -370,14 +374,6 @@ fn main() {
                 exit_code = status.code().unwrap_or(1)
             }
         }
-    } else {
-        let mut child = command.spawn()
-            .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
-        let status = child.wait()
-            .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
-        let _ = remove_dir_all(unpack_dir);
-        let _ = remove_dir(extract_dir);
-        exit_code = status.code().unwrap_or(1)
     }
     std::process::exit(exit_code)
 }
