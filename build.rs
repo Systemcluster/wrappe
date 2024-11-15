@@ -89,7 +89,7 @@ fn compile_runner(starter_dir: &Path, target: &str, out_dir: &str) -> bool {
         command.env_remove("AR");
     }
     for set in &["CC", "CXX", "AR"] {
-        if let Ok(var) = var(&format!("WRAPPE_TARGET_{}_{}", set, target)) {
+        if let Ok(var) = var(format!("WRAPPE_TARGET_{}_{}", set, target)) {
             command.env(set, var);
         }
     }

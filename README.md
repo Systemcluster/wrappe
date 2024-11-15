@@ -57,6 +57,8 @@ Options:
         Unpack directory target (temp, local, cwd) [default: temp]
   -d, --unpack-directory <UNPACK_DIRECTORY>
         Unpack directory name [default: inferred from input directory]
+  -u, --cleanup (executable env: WRAPPE_CLEANUP=1)
+          Cleanup unpack directory
   -v, --versioning <VERSIONING>
         Versioning strategy (sidebyside, replace, none) [default: sidebyside]
   -e, --verification <VERIFICATION>
@@ -153,6 +155,9 @@ This option controls the information output of the runner. Accepted values are:
 * `none`: The runner will show no additional output.
 
 It defaults to `title`. Error information is always shown when applicable. Windows runners using the GUI subsystem will only show information output when launched from a console and this option is set to `verbose`, or a console is attached or opened through the [`console`](#console) option.
+
+#### cleanup
+This option allows you to delete the unpacking directory after closing the executable file. You can also set the environment variable `WRAPPE_CLEANUP=1`
 
 #### console
 

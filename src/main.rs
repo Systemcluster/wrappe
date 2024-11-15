@@ -37,6 +37,9 @@ pub struct Args {
     /// Unpack directory name [default: inferred from input directory]
     #[arg(short = 'd', long)]
     unpack_directory: Option<String>,
+    /// Cleanup unpack directory (executable env: WRAPPE_CLEANUP=1)
+    #[arg(short = 'u', long, default_value = "false")]
+    cleanup: bool,
     /// Versioning strategy (sidebyside, replace, none)
     #[arg(short = 'v', long, default_value = "sidebyside")]
     versioning:       String,
@@ -125,6 +128,7 @@ fn main() {
 
     let mut show_console = get_show_console(&args.console, runner_name);
     let once = if args.once { 1 } else { 0 };
+    let cleanup = if args.cleanup { 1 } else { 0 };
 
     if (versioning == 1 || versioning == 2) && once == 0 {
         println!(
@@ -372,6 +376,7 @@ fn main() {
         current_dir,
         verification,
         show_information,
+        cleanup,
         uid: version.as_bytes().try_into().unwrap(),
         unpack_target,
         versioning,
