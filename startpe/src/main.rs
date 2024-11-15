@@ -250,7 +250,7 @@ fn main() {
     if let Ok(var) = env::var("WRAPPE_CLEANUP") {
         is_cleanup = var == "1"
     } else {
-        is_cleanup = if info.cleanup == 1 { true } else { false }
+        is_cleanup = info.cleanup == 1
     }
 
     let should_extract = match info.versioning {
@@ -337,7 +337,6 @@ fn main() {
         let _ = std::io::stdout().flush();
     }
 
-    let mut exit_code = 1;
     let mut command = Command::new(run_path);
     command.args(baked_arguments);
     command.args(forwarded_arguments);
@@ -352,7 +351,7 @@ fn main() {
             .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
         let _ = remove_dir_all(unpack_dir);
         let _ = remove_dir(unpack_root);
-        exit_code = status.code().unwrap_or(1)
+        std::process::exit(status.code().unwrap_or(1))
     } else {
         #[cfg(any(unix, target_os = "redox"))]
         {
@@ -371,9 +370,8 @@ fn main() {
             if show_console == 1 || (show_console == 2 && console_attached) {
                 let status = child.wait()
                     .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
-                exit_code = status.code().unwrap_or(1)
+                std::process::exit(status.code().unwrap_or(1))
             }
         }
     }
-    std::process::exit(exit_code)
 }

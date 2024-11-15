@@ -20,6 +20,17 @@ default = ["prefetch", "once"]
 prefetch = []
 once = ["dep:procfs"]
 
+[profile.release]
+
+codegen-units = 1
+debug = false
+debug-assertions = false
+incremental = false
+lto = "fat"
+opt-level = 's'
+panic = "abort"
+strip = "symbols"
+
 [dependencies]
 
 dirs = "5.0.1"
