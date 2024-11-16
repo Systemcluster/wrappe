@@ -7,7 +7,7 @@ use std::{
 };
 
 use clap::Parser;
-use console::{style, Emoji};
+use console::{Emoji, style};
 use editpe::Image;
 use indicatif::{ProgressBar, ProgressStyle};
 use jwalk::WalkDir;
@@ -37,9 +37,6 @@ pub struct Args {
     /// Unpack directory name [default: inferred from input directory]
     #[arg(short = 'd', long)]
     unpack_directory: Option<String>,
-    /// Cleanup unpack directory (executable env: WRAPPE_CLEANUP=1)
-    #[arg(short = 'u', long, default_value = "false")]
-    cleanup: bool,
     /// Versioning strategy (sidebyside, replace, none)
     #[arg(short = 'v', long, default_value = "sidebyside")]
     versioning:       String,
@@ -58,6 +55,9 @@ pub struct Args {
     /// Working directory of the command (inherit, unpack, runner, command)
     #[arg(short = 'w', long, default_value = "inherit")]
     current_dir:      String,
+    /// Cleanup the unpack directory after exit
+    #[arg(short = 'u', long, default_value = "false")]
+    cleanup:          bool,
     /// Only allow one instance of the application to run
     #[arg(short = 'o', long, default_value = "false")]
     once:             bool,

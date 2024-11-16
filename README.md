@@ -57,8 +57,6 @@ Options:
         Unpack directory target (temp, local, cwd) [default: temp]
   -d, --unpack-directory <UNPACK_DIRECTORY>
         Unpack directory name [default: inferred from input directory]
-  -u, --cleanup (executable env: WRAPPE_CLEANUP=1)
-          Cleanup unpack directory
   -v, --versioning <VERSIONING>
         Versioning strategy (sidebyside, replace, none) [default: sidebyside]
   -e, --verification <VERIFICATION>
@@ -71,6 +69,8 @@ Options:
         Show or attach to a console window (auto, always, never, attach) [default: auto]
   -w, --current-dir <CURRENT_DIR>
         Working directory of the command (inherit, unpack, runner, command) [default: inherit]
+  -u, --cleanup
+        Cleanup the unpack directory after exit
   -o, --once
         Allow only one running instance
   -z, --build-dictionary
@@ -156,9 +156,6 @@ This option controls the information output of the runner. Accepted values are:
 
 It defaults to `title`. Error information is always shown when applicable. Windows runners using the GUI subsystem will only show information output when launched from a console and this option is set to `verbose`, or a console is attached or opened through the [`console`](#console) option.
 
-#### cleanup
-This option allows you to delete the unpacking directory after closing the executable file. You can also set the environment variable `WRAPPE_CLEANUP=1`
-
 #### console
 
 This option controls if the runner should attach to a console or if a console window should be opened when launching a Windows application from the Windows explorer. Accepted values are:
@@ -180,6 +177,12 @@ This option changes the working directory of the packed executable. Accepted val
 * `command`: The working directory will be set to the directory containing the unpacked executable. This will either be the unpack directory or a subdirectory within the unpacked payload.
 
 It defaults to `inherit`.
+
+#### cleanup
+
+This option controls if the unpacking directory should be deleted after after exiting the packed executable.
+
+It can also be set at runtime by setting the `STARTPE_CLEANUP` environment variable to `1`.
 
 #### once
 
