@@ -1,6 +1,6 @@
 use std::{
-    env::{self, current_exe, var_os},
-    fs::{create_dir_all, read_link, remove_dir, remove_dir_all, File},
+    env::{current_exe, var_os},
+    fs::{File, create_dir_all, read_link, remove_dir, remove_dir_all},
     io::Write,
     mem::size_of,
     panic::set_hook,
@@ -17,7 +17,7 @@ use std::os::unix::process::CommandExt;
 use std::process::Stdio;
 
 #[cfg(windows)]
-use windows_sys::Win32::System::Console::{AttachConsole, ATTACH_PARENT_PROCESS};
+use windows_sys::Win32::System::Console::{ATTACH_PARENT_PROCESS, AttachConsole};
 
 use fslock_guard::LockFileGuard;
 use memchr::memmem;
@@ -160,6 +160,9 @@ fn main() {
         );
     }
 
+    if info.unpack_directory.is_empty() {
+        panic!("empty unpack directory name")
+    }
     let unpack_dir_name = std::str::from_utf8(
         &info.unpack_directory[0..(info
             .unpack_directory
@@ -246,11 +249,11 @@ fn main() {
         }
     }
 
-    let is_cleanup: bool;
-    if let Ok(var) = env::var("WRAPPE_CLEANUP") {
-        is_cleanup = var == "1"
+    let cleanup: bool;
+    if let Some(var) = var_os("STARTPE_CLEANUP") {
+        cleanup = var == "1"
     } else {
-        is_cleanup = info.cleanup == 1
+        cleanup = info.cleanup == 1
     }
 
     let should_extract = match info.versioning {
@@ -267,6 +270,7 @@ fn main() {
     if show_information >= 2 {
         println!("should verify: {}", verification);
         println!("should extract: {}", should_extract);
+        println!("should cleanup: {}", cleanup);
     }
 
     if should_extract || verification > 0 {
@@ -344,10 +348,20 @@ fn main() {
     command.env("WRAPPE_LAUNCH_DIR", launch_dir.as_os_str());
     command.current_dir(current_dir);
 
-    if is_cleanup {
-        let mut child = command.spawn()
+    #[cfg(not(any(unix, target_os = "redox")))]
+    {
+        if show_console == 0 || (show_console == 2 && !console_attached) {
+            command.stdout(Stdio::null());
+            command.stderr(Stdio::null());
+            command.stdin(Stdio::null());
+        }
+    }
+    if cleanup {
+        let mut child = command
+            .spawn()
             .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
-        let status = child.wait()
+        let status = child
+            .wait()
             .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
         let _ = remove_dir_all(unpack_dir);
         let _ = remove_dir(unpack_root);
@@ -360,15 +374,13 @@ fn main() {
         }
         #[cfg(not(any(unix, target_os = "redox")))]
         {
-            if show_console == 0 || (show_console == 2 && !console_attached) {
-                command.stdout(Stdio::null());
-                command.stderr(Stdio::null());
-                command.stdin(Stdio::null());
-            }
-            let mut child = command.spawn()
+            #[allow(clippy::zombie_processes)]
+            let mut child = command
+                .spawn()
                 .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
             if show_console == 1 || (show_console == 2 && console_attached) {
-                let status = child.wait()
+                let status = child
+                    .wait()
                     .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
                 std::process::exit(status.code().unwrap_or(1))
             }
