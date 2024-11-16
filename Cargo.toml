@@ -42,6 +42,11 @@ opt-level = 's'
 panic = "abort"
 strip = "symbols"
 
+[profile.dev]
+
+panic = "abort"
+opt-level = 0
+
 [dependencies]
 
 staticfilemap = { version = "0.7.0", default-features = false, features = ["zstd", "multithread"] }

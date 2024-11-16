@@ -1,6 +1,6 @@
 pub use zerocopy::AsBytes;
 
-pub const WRAPPE_FORMAT: u8 = 203;
+pub const WRAPPE_FORMAT: u8 = 204;
 pub const WRAPPE_SIGNATURE: [u8; 8] = [0x50, 0x45, 0x33, 0x44, 0x41, 0x54, 0x41, 0x00];
 pub const NAME_SIZE: usize = 128;
 pub const ARGS_SIZE: usize = 512;
@@ -17,6 +17,7 @@ pub struct StarterInfo {
     pub unpack_target:    u8,
     pub versioning:       u8,
     pub once:             u8,
+    pub cleanup:          u8,
     pub wrappe_format:    u8,
     pub unpack_directory: [u8; NAME_SIZE],
     pub command:          [u8; NAME_SIZE],

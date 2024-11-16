@@ -69,6 +69,8 @@ Options:
         Show or attach to a console window (auto, always, never, attach) [default: auto]
   -w, --current-dir <CURRENT_DIR>
         Working directory of the command (inherit, unpack, runner, command) [default: inherit]
+  -u, --cleanup
+        Cleanup the unpack directory after exit
   -o, --once
         Allow only one running instance
   -z, --build-dictionary
@@ -175,6 +177,12 @@ This option changes the working directory of the packed executable. Accepted val
 * `command`: The working directory will be set to the directory containing the unpacked executable. This will either be the unpack directory or a subdirectory within the unpacked payload.
 
 It defaults to `inherit`.
+
+#### cleanup
+
+This option controls if the unpacking directory should be deleted after exiting the packed executable.
+
+It can also be set at runtime by setting the `STARTPE_CLEANUP` environment variable to `1`.
 
 #### once
 

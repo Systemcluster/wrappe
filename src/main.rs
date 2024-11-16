@@ -7,7 +7,7 @@ use std::{
 };
 
 use clap::Parser;
-use console::{style, Emoji};
+use console::{Emoji, style};
 use editpe::Image;
 use indicatif::{ProgressBar, ProgressStyle};
 use jwalk::WalkDir;
@@ -55,6 +55,9 @@ pub struct Args {
     /// Working directory of the command (inherit, unpack, runner, command)
     #[arg(short = 'w', long, default_value = "inherit")]
     current_dir:      String,
+    /// Cleanup the unpack directory after exit
+    #[arg(short = 'u', long, default_value = "false")]
+    cleanup:          bool,
     /// Only allow one instance of the application to run
     #[arg(short = 'o', long, default_value = "false")]
     once:             bool,
@@ -125,6 +128,7 @@ fn main() {
 
     let mut show_console = get_show_console(&args.console, runner_name);
     let once = if args.once { 1 } else { 0 };
+    let cleanup = if args.cleanup { 1 } else { 0 };
 
     if (versioning == 1 || versioning == 2) && once == 0 {
         println!(
@@ -372,6 +376,7 @@ fn main() {
         current_dir,
         verification,
         show_information,
+        cleanup,
         uid: version.as_bytes().try_into().unwrap(),
         unpack_target,
         versioning,

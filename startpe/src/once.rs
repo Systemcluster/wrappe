@@ -93,9 +93,9 @@ pub fn check_instance(run_path: &Path) -> Result<bool, std::io::Error> {
 #[cfg(target_os = "linux")]
 pub fn check_instance(run_path: &Path) -> Result<bool, std::io::Error> {
     let processes = procfs::process::all_processes();
-    if let Err(e) = processes {
+    if let Err(_e) = processes {
         #[cfg(debug_assertions)]
-        eprintln!("error: {}", e);
+        eprintln!("error: {}", _e);
         return Ok(false);
     }
     for proc in processes.unwrap() {

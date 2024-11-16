@@ -1,6 +1,6 @@
 use std::{
     env::{current_exe, var_os},
-    fs::{create_dir_all, read_link, File},
+    fs::{File, create_dir_all, read_link, remove_dir, remove_dir_all},
     io::Write,
     mem::size_of,
     panic::set_hook,
@@ -17,7 +17,7 @@ use std::os::unix::process::CommandExt;
 use std::process::Stdio;
 
 #[cfg(windows)]
-use windows_sys::Win32::System::Console::{AttachConsole, ATTACH_PARENT_PROCESS};
+use windows_sys::Win32::System::Console::{ATTACH_PARENT_PROCESS, AttachConsole};
 
 use fslock_guard::LockFileGuard;
 use memchr::memmem;
@@ -160,6 +160,9 @@ fn main() {
         );
     }
 
+    if info.unpack_directory.is_empty() {
+        panic!("empty unpack directory name")
+    }
     let unpack_dir_name = std::str::from_utf8(
         &info.unpack_directory[0..(info
             .unpack_directory
@@ -189,13 +192,14 @@ fn main() {
         );
     }
 
-    let unpack_root = match info.unpack_target {
+    let mut unpack_root = match info.unpack_target {
         0 => std::env::temp_dir(),
         1 => dirs::data_local_dir().unwrap(),
         2 => std::env::current_dir().unwrap(),
         _ => panic!("invalid unpack target"),
     };
-    let mut unpack_dir = unpack_root.join(unpack_dir_name);
+    unpack_root = unpack_root.join(unpack_dir_name);
+    let mut unpack_dir = unpack_root.clone();
     if info.versioning == 0 {
         unpack_dir = unpack_dir.join(version);
     }
@@ -245,6 +249,13 @@ fn main() {
         }
     }
 
+    let cleanup: bool;
+    if let Some(var) = var_os("STARTPE_CLEANUP") {
+        cleanup = var == "1"
+    } else {
+        cleanup = info.cleanup == 1
+    }
+
     let should_extract = match info.versioning {
         0 => get_version(&unpack_dir) != version,
         1 => get_version(&unpack_dir) != version,
@@ -259,6 +270,7 @@ fn main() {
     if show_information >= 2 {
         println!("should verify: {}", verification);
         println!("should extract: {}", should_extract);
+        println!("should cleanup: {}", cleanup);
     }
 
     if should_extract || verification > 0 {
@@ -335,11 +347,7 @@ fn main() {
     command.env("WRAPPE_UNPACK_DIR", unpack_dir.as_os_str());
     command.env("WRAPPE_LAUNCH_DIR", launch_dir.as_os_str());
     command.current_dir(current_dir);
-    #[cfg(any(unix, target_os = "redox"))]
-    {
-        let e = command.exec();
-        panic!("failed to run {}: {}", run_path.display(), e);
-    }
+
     #[cfg(not(any(unix, target_os = "redox")))]
     {
         if show_console == 0 || (show_console == 2 && !console_attached) {
@@ -347,14 +355,35 @@ fn main() {
             command.stderr(Stdio::null());
             command.stdin(Stdio::null());
         }
+    }
+    if cleanup {
         let mut child = command
             .spawn()
             .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
-        if show_console == 1 || (show_console == 2 && console_attached) {
-            let result = child
-                .wait()
+        let status = child
+            .wait()
+            .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
+        let _ = remove_dir_all(unpack_dir);
+        let _ = remove_dir(unpack_root);
+        std::process::exit(status.code().unwrap_or(1))
+    } else {
+        #[cfg(any(unix, target_os = "redox"))]
+        {
+            let e = command.exec();
+            panic!("failed to run {}: {}", run_path.display(), e);
+        }
+        #[cfg(not(any(unix, target_os = "redox")))]
+        {
+            #[allow(clippy::zombie_processes)]
+            let mut child = command
+                .spawn()
                 .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
-            std::process::exit(result.code().unwrap_or(0))
+            if show_console == 1 || (show_console == 2 && console_attached) {
+                let status = child
+                    .wait()
+                    .unwrap_or_else(|e| panic!("failed to run {}: {}", run_path.display(), e));
+                std::process::exit(status.code().unwrap_or(1))
+            }
         }
     }
 }
