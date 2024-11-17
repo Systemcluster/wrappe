@@ -2,7 +2,7 @@
 
 name = "startpe"
 description = "Runner for Packed Executables"
-version = "1.0.3"
+version = "1.0.4"
 license = "BSD-2-Clause"
 authors = ["Christian Sdunek <me@systemcluster.me>"]
 edition = "2021"

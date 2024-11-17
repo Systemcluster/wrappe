@@ -2,7 +2,7 @@
 
 name = "wrappe"
 description = "Packer for creating self-contained single-binary applications from executables and directories"
-version = "1.0.3"
+version = "1.0.4"
 license = "BSD-2-Clause"
 authors = ["Christian Sdunek <me@systemcluster.me>"]
 categories = ["compression", "filesystem", "command-line-utilities"]
