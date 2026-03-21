@@ -5,8 +5,8 @@ use std::{
 
 use console::style;
 use rand::{
-    distributions::{Alphanumeric, Distribution},
-    thread_rng,
+    distr::{Alphanumeric, Distribution},
+    rng,
 };
 use staticfilemap::StaticFileMap;
 
@@ -126,7 +126,7 @@ pub fn get_version(version: Option<&str>) -> String {
         version.chars().collect::<Vec<_>>()
     } else {
         Alphanumeric
-            .sample_iter(thread_rng())
+            .sample_iter(rng())
             .map(char::from)
             .take(8)
             .collect::<Vec<_>>()

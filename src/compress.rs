@@ -14,8 +14,8 @@ use std::{
 use jwalk::WalkDir;
 use path_slash::PathExt;
 use rand::{
-    distributions::{Alphanumeric, Distribution},
-    thread_rng,
+    distr::{Alphanumeric, Distribution},
+    rng,
 };
 use rayon::prelude::*;
 use sysinfo::System;
@@ -325,7 +325,7 @@ pub fn compress<
                 ));
                 let cache_path = temp_dir().join(
                     Alphanumeric
-                        .sample_iter(thread_rng())
+                        .sample_iter(rng())
                         .map(char::from)
                         .take(16)
                         .collect::<String>(),

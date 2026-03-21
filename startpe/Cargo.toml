@@ -35,19 +35,20 @@ strip = "symbols"
 [dependencies]
 
 dirs = "5.0.1"
-filetime = "0.2.25"
-fslock-guard = "0.2.0"
-memchr = "2.7.4"
-memmap2 = "0.9.5"
+filetime = "0.2.27"
+fslock-guard = "=0.2.2"
+memchr = "2.8.0"
+memmap2 = "0.9.10"
 rayon = "1.10.0"
+rayon-core = "=1.12.1"
 twox-hash = { version = "1.6.3", default-features = false }
-zerocopy = { version = "0.8.10", features = ["derive"] }
-zstd = { version = "0.13.2", default-features = false, features = [] }
+zerocopy = { version = "0.8.47", features = ["derive"] }
+zstd = { version = "0.13.3", default-features = false, features = [] }
 
 [target.'cfg(windows)'.dependencies]
 
-windows-sys = { version = "0.59.0", features = ["Win32_Foundation", "Win32_System_Console", "Win32_System_LibraryLoader", "Win32_System_Threading", "Win32_System_Diagnostics", "Win32_System_Diagnostics_ToolHelp", "Win32_System_ProcessStatus", "Win32_UI_WindowsAndMessaging"] }
+windows-sys = { version = "0.60.2", features = ["Win32_Foundation", "Win32_System_Console", "Win32_System_LibraryLoader", "Win32_System_Threading", "Win32_System_Diagnostics", "Win32_System_Diagnostics_ToolHelp", "Win32_System_ProcessStatus", "Win32_UI_WindowsAndMessaging"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 
-procfs = { version = "0.17.0", default-features = false, optional = true }
+procfs = { version = "0.18.0", default-features = false, optional = true }
