@@ -231,6 +231,28 @@ pub fn get_current_dir(current_dir: &str) -> u8 {
     }
 }
 
+pub fn get_icon_path(icon: Option<&Path>) -> Option<PathBuf> {
+    icon?;
+    let icon = Path::new(&std::env::current_dir().unwrap()).join(icon.unwrap());
+    let icon = std::fs::canonicalize(&icon).unwrap_or_else(|_| {
+        println!(
+            "{}: {}",
+            style("icon file does not exist").red(),
+            icon.display()
+        );
+        std::process::exit(-1);
+    });
+    if !icon.is_file() {
+        println!(
+            "{}: {}",
+            style("icon path is not a file").red(),
+            icon.display()
+        );
+        std::process::exit(-1);
+    }
+    Some(icon)
+}
+
 pub fn get_source(source: &Path) -> PathBuf {
     let source = Path::new(&std::env::current_dir().unwrap()).join(source);
     let source = std::fs::canonicalize(&source).unwrap_or_else(|_| {

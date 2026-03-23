@@ -69,6 +69,8 @@ Options:
         Show or attach to a console window (auto, always, never, attach) [default: auto]
   -w, --current-dir <CURRENT_DIR>
         Working directory of the command (inherit, unpack, runner, command) [default: inherit]
+  -m, --icon <ICON>
+        Path to an image to use as Windows executable icon
   -u, --cleanup
         Cleanup the unpack directory after exit
   -o, --once
@@ -177,6 +179,10 @@ This option changes the working directory of the packed executable. Accepted val
 * `command`: The working directory will be set to the directory containing the unpacked executable. This will either be the unpack directory or a subdirectory within the unpacked payload.
 
 It defaults to `inherit`.
+
+#### icon
+
+This option allows setting the icon of the Windows executable. By default, the icon of the packed executable is used.
 
 #### cleanup
 

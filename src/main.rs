@@ -55,6 +55,9 @@ pub struct Args {
     /// Working directory of the command (inherit, unpack, runner, command)
     #[arg(short = 'w', long, default_value = "inherit")]
     current_dir:      String,
+    /// Path to an image to use as Windows executable icon
+    #[arg(short = 'm', long)]
+    icon:             Option<PathBuf>,
     /// Cleanup the unpack directory after exit
     #[arg(short = 'u', long, default_value = "false")]
     cleanup:          bool,
@@ -125,6 +128,7 @@ fn main() {
     let show_information = get_show_information(&args.show_information);
     let arguments = get_arguments(&args.arguments);
     let current_dir = get_current_dir(&args.current_dir);
+    let icon_path = get_icon_path(args.icon.as_deref());
 
     let mut show_console = get_show_console(&args.console, runner_name);
     let once = if args.once { 1 } else { 0 };
@@ -165,6 +169,14 @@ fn main() {
         println!(
             "{}",
             style("note: setting console mode is only supported for Windows runners")
+                .yellow()
+                .dim(),
+        );
+    }
+    if icon_path.is_some() && !runner_name.contains("windows") {
+        println!(
+            "{}",
+            style("note: setting an executable icon is only supported for Windows runners")
                 .yellow()
                 .dim(),
         );
@@ -256,10 +268,13 @@ fn main() {
             };
             let command_data = std::fs::read(command_path)?;
             let command_image = Image::parse(command_data)?;
-            let command_resources = command_image
+            let mut command_resources = command_image
                 .resource_directory()
                 .cloned()
                 .unwrap_or_default();
+            if let Some(icon_path) = icon_path {
+                command_resources.set_main_icon(image::ImageReader::open(icon_path)?.decode()?)?;
+            }
             if args.console == "auto" {
                 show_console = if command_image.subsystem() == 3 { 1 } else { 0 };
                 runner_image.set_subsystem(command_image.subsystem());

@@ -51,7 +51,7 @@ opt-level = 0
 [dependencies]
 
 staticfilemap = { version = "0.8.0", default-features = false, features = ["zstd", "multithread"] }
-editpe = { version = "0.2.3", default-features = false, features = ["std"] }
+editpe = { version = "0.2.3", default-features = false, features = ["std", "images"] }
 
 clap = { version = "=4.5.21", features = ["std", "color", "suggestions", "derive", "unicode", "wrap_help"] }
 color-backtrace = "0.5.1"
@@ -67,6 +67,7 @@ sysinfo = "0.32.1"
 twox-hash = { version = "1.6.3", default-features = false }
 zerocopy = "0.8.47"
 zstd = { version = "0.13.3", default-features = false, features = ["zstdmt", "zdict_builder"] }
+image = { version = "=0.25.6", default-features = false, features = ["ico", "jpeg", "png"] }
 
 indexmap = "=2.11.4"
 
