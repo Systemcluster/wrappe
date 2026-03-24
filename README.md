@@ -36,17 +36,17 @@ wrappe --compression 16 app app/diogenes.exe packed.exe
 
 ### Details
 
-Run `wrappe` with an `input` directory, the `command` to launch and  the `output` filename to create a single-binary executable.
-The input directory and all contained files and links will be packed. The command must be an executable file within the input directory that should be launched after unpacking.
+Run `wrappe` with an `input` file or directory, the `command` to launch, and the `output` filename.
+The input directory and all contained files and links will be packed into a single-binary executable.
 
 ```text
-wrappe [OPTIONS] <input> <command> [output] [-- <ARGUMENTS>...]
+wrappe [OPTIONS] <input> [command] [output] [-- <ARGUMENTS>...]
 
 Arguments:
-  <input>         Path to the input directory
-  <command>       Path to the executable to start after unpacking
+  <input>         Path to the input file or directory
+  [command]       Path to the executable in the input directory or the input file
   [output]        Path to or filename of the output executable
-  [ARGUMENTS]...  Command line arguments to pass to the executable
+  [ARGUMENTS]...  Command line arguments to store
 
 Options:
   -r, --runner <RUNNER>

@@ -356,7 +356,19 @@ pub fn get_unpack_directory(directory: Option<&str>, source: &Path) -> [u8; NAME
     _directory
 }
 
-pub fn get_command_path(command: &Path, source: &Path) -> PathBuf {
+pub fn get_command_path(command: Option<&Path>, source: &Path) -> PathBuf {
+    if command.is_none() {
+        if source.is_file() {
+            return source.to_owned();
+        } else {
+            println!(
+                "{}",
+                style("command must be specified when source is not a file").red()
+            );
+            std::process::exit(-1);
+        }
+    }
+    let command = command.unwrap();
     let source = if source.is_file() {
         source.parent().unwrap_or_else(|| {
             println!("{}", style("source path has no parent").red());

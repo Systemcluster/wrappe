@@ -71,16 +71,16 @@ pub struct Args {
     #[arg(short = 'l', long)]
     #[allow(dead_code)]
     list_runners:     bool,
-    /// Path to the input directory
+    /// Path to the input file or directory
     #[arg(name = "input")]
     input:            PathBuf,
-    /// Path to the executable to start after unpacking
+    /// Path to the executable in the input directory or the input file
     #[arg(name = "command")]
-    command:          PathBuf,
+    command:          Option<PathBuf>,
     /// Path to or filename of the output executable
     #[arg(name = "output")]
     output:           Option<PathBuf>,
-    /// Command line arguments to pass to the executable
+    /// Command line arguments to store
     #[arg(last = true)]
     arguments:        Vec<String>,
     /// Print version
@@ -120,7 +120,7 @@ fn main() {
     let versioning = get_versioning(&args.versioning);
     let version = get_version(args.version_string.as_deref());
     let source = get_source(&args.input);
-    let command_path = get_command_path(&args.command, &source);
+    let command_path = get_command_path(args.command.as_deref(), &source);
     let command = get_command(&command_path);
     let output = get_output(args.output.as_deref(), &command_path);
     let unpack_directory = get_unpack_directory(args.unpack_directory.as_deref(), &source);
@@ -163,14 +163,6 @@ fn main() {
                 .yellow()
                 .dim(),
             style(format!("(target: {})", runner_name)).yellow().dim(),
-        );
-    }
-    if show_console != 2 && !runner_name.contains("windows") {
-        println!(
-            "{}",
-            style("note: setting console mode is only supported for Windows runners")
-                .yellow()
-                .dim(),
         );
     }
     if icon_path.is_some() && !runner_name.contains("windows") {
@@ -264,7 +256,7 @@ fn main() {
             let command_path = if source.is_file() {
                 source.clone()
             } else {
-                source.join(get_command_path(&args.command, &source))
+                source.join(get_command_path(args.command.as_deref(), &source))
             };
             let command_data = std::fs::read(command_path)?;
             let command_image = Image::parse(command_data)?;
