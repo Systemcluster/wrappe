@@ -297,26 +297,48 @@ fn main() {
 
     drop(lockfile);
 
-    let baked_arguments = std::str::from_utf8(
+    let stored_arguments = std::str::from_utf8(
         &info.arguments[0..(info
             .arguments
             .iter()
             .position(|&c| c == b'\0')
             .unwrap_or(info.arguments.len()))],
     )
-    .expect("couldn't parse baked arguments");
-    let baked_arguments = baked_arguments
+    .expect("couldn't parse stored arguments");
+    let stored_arguments = stored_arguments
         .split('\u{1f}')
         .map(|arg| arg.trim().to_string())
         .filter(|arg| !arg.is_empty())
         .collect::<Vec<_>>();
-    if show_information >= 2 && !baked_arguments.is_empty() {
-        println!("baked arguments: {:?}", baked_arguments);
+    if show_information >= 2 && !stored_arguments.is_empty() {
+        println!("stored arguments: {:?}", stored_arguments);
     }
 
     let forwarded_arguments = std::env::args().skip(1).collect::<Vec<_>>();
     if show_information >= 2 && !forwarded_arguments.is_empty() {
         println!("forwarded arguments: {:?}", forwarded_arguments);
+    }
+
+    let stored_env = std::str::from_utf8(
+        &info.env[0..(info
+            .env
+            .iter()
+            .position(|&c| c == b'\0')
+            .unwrap_or(info.env.len()))],
+    )
+    .expect("couldn't parse stored environment variables");
+    let stored_env = stored_env
+        .split('\u{1f}')
+        .map(|var| var.trim())
+        .filter(|var| !var.is_empty())
+        .map(|var| {
+            var.split_once('\u{1e}')
+                .expect("invalid stored environment variable format")
+        })
+        .map(|(key, value)| (key.to_string(), value.to_string()))
+        .collect::<Vec<_>>();
+    if show_information >= 2 && !stored_env.is_empty() {
+        println!("stored environment variables: {:?}", stored_env);
     }
 
     let launch_dir = std::env::current_dir().unwrap();
@@ -343,10 +365,16 @@ fn main() {
     }
 
     let mut command = Command::new(run_path);
-    command.args(baked_arguments);
+    command.args(stored_arguments);
     command.args(forwarded_arguments);
+    for (key, value) in stored_env.into_iter() {
+        command.env(key, value);
+    }
     command.env("WRAPPE_UNPACK_DIR", unpack_dir.as_os_str());
     command.env("WRAPPE_LAUNCH_DIR", launch_dir.as_os_str());
+    command.env("WRAPPE_RUN_PATH", run_path.as_os_str());
+    command.env("WRAPPE_ARGV0", std::env::args().next().unwrap_or_default());
+    command.env("WRAPPE_EXE", &exe);
     command.current_dir(current_dir);
 
     #[cfg(not(any(unix, target_os = "redox")))]

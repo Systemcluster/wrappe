@@ -69,6 +69,8 @@ Options:
         Show or attach to a console window (auto, always, never, attach) [default: auto]
   -w, --current-dir <CURRENT_DIR>
         Working directory of the command (inherit, unpack, runner, command) [default: inherit]
+  -a, --env <ENV>
+        Environment variables to store (can be specified multiple times)
   -m, --icon <ICON>
         Path to an image to use as Windows executable icon
   -u, --cleanup
@@ -85,9 +87,16 @@ Options:
         Print version
 ```
 
-Additional arguments for the packed executable can be specified after `--` and will automatically be passed to the command when launched.
+The following environment variables are made available to the process:
+- `WRAPPE_UNPACK_DIR`: The path to the unpack directory.
+- `WRAPPE_LAUNCH_DIR`: The path to the inherited working directory.
+- `WRAPPE_RUN_PATH`: The path to the unpacked executable.
+- `WRAPPE_ARGV0`: The name or path the runner is started with.
+- `WRAPPE_EXE`: The path of the runner with all symbolic links resolved.
 
-If the packed executable needs to access packed files by relative path and expects a certain working directory, use the [`--current-dir`](#current-dir) option to set it to its parent directory or the unpack directory. The `WRAPPE_UNPACK_DIR` and `WRAPPE_LAUNCH_DIR` environment variables will always be set for the command with the paths to the unpack directory and the inherited working directory.
+Additional environment variables can be set with the [`env`](#env) option. Additional arguments for the packed executable can be specified after `--` and will automatically be passed to the command when launched.
+
+If the packed executable needs to access packed files by relative path and expects a certain working directory, use the [`current-dir`](#current-dir) option to set it to its parent directory or the unpack directory.
 
 Packed Windows executables will have their subsystem, icons and other resources automatically transferred to the output executable through [editpe](https://github.com/Systemcluster/editpe).
 
@@ -179,6 +188,10 @@ This option changes the working directory of the packed executable. Accepted val
 * `command`: The working directory will be set to the directory containing the unpacked executable. This will either be the unpack directory or a subdirectory within the unpacked payload.
 
 It defaults to `inherit`.
+
+#### env
+
+This option allows setting environment variables for the process in the form of `KEY=VALUE`. It can be specified multiple times.
 
 #### icon
 

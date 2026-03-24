@@ -429,13 +429,46 @@ pub fn get_command(command_path: &Path) -> [u8; NAME_SIZE] {
     _command
 }
 
+pub fn get_env_vars(env: &[String]) -> [u8; ARGS_SIZE] {
+    let env = env
+        .iter()
+        .map(|v| {
+            let split = v.split_once('=');
+            let (key, val) = split.unwrap_or_else(|| {
+                println!(
+                    "{}",
+                    style("environment variable is not in the form of KEY=VALUE").red()
+                );
+                std::process::exit(-1);
+            });
+            if key.is_empty() {
+                println!("{}", style("environment variable key is empty").red());
+                std::process::exit(-1);
+            }
+            [key.trim(), val.trim()].join("\u{1e}")
+        })
+        .collect::<Vec<_>>();
+    let env = env.join("\u{1f}");
+    let env = env.as_bytes();
+    if env.len() >= ARGS_SIZE {
+        println!(
+            "{}",
+            style("environment variables list is longer than 511 characters").red(),
+        );
+        std::process::exit(-1);
+    }
+    let mut _env = [0; ARGS_SIZE];
+    _env[0..env.len()].copy_from_slice(env);
+    _env
+}
+
 pub fn get_arguments(arguments: &[String]) -> [u8; ARGS_SIZE] {
     let arguments = arguments.join("\u{1f}");
     let arguments = arguments.as_bytes();
     if arguments.len() >= ARGS_SIZE {
         println!(
             "{}",
-            style("arguments list is longer than 127 characters").red(),
+            style("arguments list is longer than 511 characters").red(),
         );
         std::process::exit(-1);
     }

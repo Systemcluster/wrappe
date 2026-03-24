@@ -55,6 +55,9 @@ pub struct Args {
     /// Working directory of the command (inherit, unpack, runner, command)
     #[arg(short = 'w', long, default_value = "inherit")]
     current_dir:      String,
+    /// Environment variables to store (can be specified multiple times)
+    #[arg(short = 'a', long)]
+    env:              Vec<String>,
     /// Path to an image to use as Windows executable icon
     #[arg(short = 'm', long)]
     icon:             Option<PathBuf>,
@@ -129,6 +132,7 @@ fn main() {
     let arguments = get_arguments(&args.arguments);
     let current_dir = get_current_dir(&args.current_dir);
     let icon_path = get_icon_path(args.icon.as_deref());
+    let env = get_env_vars(&args.env);
 
     let mut show_console = get_show_console(&args.console, runner_name);
     let once = if args.once { 1 } else { 0 };
@@ -390,6 +394,7 @@ fn main() {
         once,
         command,
         arguments,
+        env,
         wrappe_format: WRAPPE_FORMAT,
     };
     writer.write_all(info.as_bytes()).unwrap();
