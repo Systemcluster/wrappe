@@ -34,13 +34,14 @@ jobs:
           - macos-latest
         toolchain:
           - 1.77.2
+          - beta
 
     env:
       RUST_BACKTRACE: full
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
           show-progress: false
@@ -84,7 +85,7 @@ jobs:
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
           show-progress: false
