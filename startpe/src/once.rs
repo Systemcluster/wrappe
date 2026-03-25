@@ -5,6 +5,7 @@ pub fn check_instance(run_path: &Path) -> Result<bool, std::io::Error> {
     use core::ffi::c_void;
     use std::{ffi::OsString, os::windows::ffi::OsStringExt};
     use windows_sys::Win32::{
+        Foundation::CloseHandle,
         System::{
             Diagnostics::ToolHelp::{
                 CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW,
@@ -81,12 +82,14 @@ pub fn check_instance(run_path: &Path) -> Result<bool, std::io::Error> {
                     }
                     return Ok(true);
                 }
+                unsafe { CloseHandle(process) };
             }
             if unsafe { Process32NextW(snapshot, &mut entry) } == 0 {
                 break;
             }
         }
     }
+    unsafe { CloseHandle(snapshot) };
 
     Ok(false)
 }
