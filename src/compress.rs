@@ -119,7 +119,7 @@ pub fn compress<
             .iter()
             .filter_map(|entry| {
                 // zstd dictionary data is limited to 4GB
-                if sample.len() >= 4 * 1024 * 1024 * 1024 - 128 * 1024 {
+                if sample.len() > u32::MAX as usize - 128 * 1024 {
                     return None;
                 }
                 let entry = entry.as_ref().ok()?;
