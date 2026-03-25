@@ -8,6 +8,7 @@ use std::{
         Arc, Mutex,
         atomic::{AtomicU64, Ordering},
     },
+    thread::available_parallelism,
     time::SystemTime,
 };
 
@@ -84,7 +85,7 @@ pub fn compress<
     let source: &Path = source.as_ref();
     let exclude: &Path = exclude.as_ref();
 
-    let num_cpus = num_cpus::get() as u64;
+    let num_cpus = available_parallelism().map(|t| t.into()).unwrap_or(1) as u64;
     let system = System::new_with_specifics(
         sysinfo::RefreshKind::new().with_memory(sysinfo::MemoryRefreshKind::new().with_ram()),
     );
