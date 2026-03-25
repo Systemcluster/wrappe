@@ -62,6 +62,12 @@ jobs:
       - name: Check build
         run: cargo build --all-features --verbose
 
+      - name: Check build (i686-pc-windows-msvc)
+        if: runner.os == 'Windows'
+        run: |
+          rustup target add i686-pc-windows-msvc
+          cargo build --target i686-pc-windows-msvc --all-features --verbose
+
       - name: Check output
         run: |
           target/debug/wrappe --version
